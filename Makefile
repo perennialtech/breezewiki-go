@@ -1,0 +1,9 @@
+.PHONY: ci test build
+ci: test build
+
+test:
+	go test ./...
+	go vet ./...
+
+build:
+	go build ./...

@@ -1,0 +1,564 @@
+/* reset the reset */
+blockquote, code, del, details, div, dl, dt, em, fieldset, figcaption, figure, h1, h2, h3, h4, h5, h6, li, ol, p, pre, q, span, strong, ul {
+    margin: initial;
+    padding: initial;
+    border: initial;
+}
+pre, code {
+    font-family: monospace;
+    font-size: 0.85em;
+}
+pre {
+    overflow-x: auto;
+}
+ul, ol {
+    list-style-type: initial;
+    padding-left: 2em;
+    margin: 0.8em 0;
+}
+ol {
+    list-style-type: decimal;
+}
+sup {
+    vertical-align: super;
+}
+sub {
+    vertical-align: sub;
+}
+.page table {
+    color: var(--theme-page-text-color); /* no idea why this needs to be specified, it should inherit from .page */
+}
+
+/* general page appearance */
+body.skin-fandomdesktop, button, input, textarea, .wikitable, .va-table {
+    font-family: "Source Sans Pro", "Segoe UI", sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin: 1.2em 0 0.6em;
+}
+p {
+    margin: 0.6em 0;
+}
+#content dt {
+    font-weight: bold;
+}
+
+/* dotted underline for elements with hoverable title text */
+[title]:not(a):not(.new) {
+    text-decoration: dotted underline;
+}
+
+/* top bit with title and search bar */
+.custom-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+}
+.page-title {
+    margin-top: 0;
+}
+
+/* home page search form */
+.paired__label {
+    display: grid;
+}
+.paired__input {
+    width: auto;
+    max-width: 240px;
+}
+
+/* global top banner message */
+.bw-top-banner {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    background-color: #000;
+    color: #fff;
+    text-align: center;
+    white-space: pre-line;
+    padding: 8px;
+}
+.bw-top-banner a, .bw-top-banner a:visited {
+    color: #ffdd57;
+    text-decoration: underline;
+}
+.bw-top-banner-rainbow {
+    animation: bw-rainbow-color 1.6s linear infinite;
+}
+
+/* custom footer with source and license info */
+.custom-footer {
+    clear: both;
+    font-size: 16px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--theme-page-text-color);
+    word-break: break-word;
+}
+.custom-footer__cols {
+    display: grid;
+}
+.my-logo {
+    margin-bottom: 8px;
+}
+
+/* page framing */
+.main-container {
+    margin: 0;
+    min-width: auto;
+    width: auto;
+}
+.page {
+    margin: 5vw;
+}
+.page__main {
+    background-color: var(--theme-page-background-color);
+    padding: 3vw;
+}
+.fandom-community-header__background {
+    transform: none; /* fandom offsets this 46px by default due to their position: fixed top bar */
+}
+
+/* table of contents */
+.toc {
+    background-color: var(--custom-table-background);
+}
+.toctitle {
+    background-color: var(--custom-table-header-background);
+}
+.toc ul li a {
+    line-height: 1.2;
+}
+.toc ul ul {
+    margin-left: 1em;
+}
+.toc ul li a, .toc ul li a .tocnumber {
+    transition-duration: 0s;
+}
+.toctogglespan {
+    display: none;
+}
+.tocnumber {
+    min-width: 1em; /* align that nice and good */
+}
+
+/* don't display links for editing navboxes */
+.va-navbox-editlink {
+    display: none;
+}
+
+/* don't display sections on home pages encouraging new editors */
+#fpcommunity {
+    display: none;
+}
+
+/* don't allow images to extend past the edge of the page */
+img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+}
+
+/* allow tables to scroll horizontally if needed */
+.table-scroller {
+    overflow: auto;
+}
+
+/* float right. reorganised from their sheet */
+.tright {
+    clear: right;
+    float: right;
+    margin: 0 0 16px 20px;
+}
+
+/* indicate wikipedia links */
+svg.external {
+    vertical-align: super;
+}
+.external[href*="wikipedia.org"]::after, .extiw[href*="wikipedia.org"]::after {
+    vertical-align: super;
+    font-family: serif;
+    font-size: smaller;
+    content: "[W]";
+}
+
+/* figure captions */
+figure img {
+    display: inline-block;
+}
+figcaption, .lightbox-caption, .thumbcaption {
+    margin-top: 4px;
+    font-size: 0.85em;
+    font-style: italic;
+}
+
+/* screenshot galleries */
+.gallery, .wikia-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    list-style-type: none;
+    padding: 0;
+}
+.wikia-slideshow-wrapper, .wikia-slideshow-images, .gallerybox, .thumb {
+    width: auto !important;
+    height: auto !important;
+    list-style-type: none;
+}
+.wikia-slideshow-toolbar {
+    display: none;
+}
+
+/* show tabs if tabs.js isn't loaded */
+.bw-tabs-nojs .wds-tabs__wrapper {
+    display: none;
+}
+.bw-tabs-nojs .wds-tab__content {
+    display: block;
+}
+
+/* javascript audio play buttons */
+a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
+    display: none;
+}
+.sound > [style="display:none"] { /* see minecraft/wiki/villager#Sounds */
+  display: inline !important;
+}
+
+/* animated slots */
+#mw-content-text .animated > :not(.animated-active), #mw-content-text .animated > .animated-subframe > :not(.animated-active) {
+    display: inline-block;
+}
+.animated-slot__outer {
+    display: inline-block;
+    position: relative;
+    overflow: hidden;
+    width: 32px;
+    height: 32px;
+}
+.animated-slot__inner {
+    display: inline-block;
+    animation: slide-up calc(var(--steps) * 1s) steps(var(--steps)) infinite;
+}
+@keyframes slide-up {
+    0% {
+        margin-top: 0px;
+    }
+    100% {
+        margin-top: calc(-34px * var(--steps));
+    }
+}
+
+/* search results */
+.my-result {
+    margin-bottom: 6px;
+}
+.my-result__link {
+    font-size: 1.2em;
+}
+.my-result__description {
+    font-size: 0.8em;
+    white-space: pre-line;
+    margin-left: 1.2em;
+}
+.my-result mark {
+    background: rgba(255, 255, 0, 0.4);
+}
+.my-result__info {
+    font-size: 0.8em;
+    color: var(--theme-page-text-color--hover);
+    margin-left: 1.2em;
+}
+.my-result__filter {
+    display: grid;
+    grid-template-columns: auto auto auto 1fr;
+    grid-gap: 8px;
+}
+
+/* (breezewiki) search suggestions */
+.bw-search-form {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-gap: 0px 5px;
+    align-items: baseline;
+}
+.bw-ss__container {
+    grid-column: 2;
+    position: relative;
+}
+.bw-ss__list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+    background: white;
+    border: solid #808080;
+    border-width: 0px 1px 1px;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.5);
+    z-index: 99;
+
+    display: none;
+}
+.bw-ss__list--focus {
+    display: block;
+}
+.bw-ss__list--loading {
+    background: #c0c0c0;
+}
+.bw-ss__input {
+    width: 100%; /* magically makes it fit the available space */
+}
+.bw-ss__input--accepted {
+    background: #fffbc0;
+}
+.bw-ss__preview {
+    padding: 0px 2px;
+    font-style: italic;
+    color: #555;
+}
+.bw-ss__item {
+    display: grid; /* make buttons take the full size */
+}
+.bw-ss__button:hover, .bw-ss__button:focus {
+    background-color: #ddd;
+}
+.bw-ss__button {
+    appearance: none;
+    -moz-appearance: none;
+    border: none;
+    margin: 0;
+    line-height: inherit;
+    color: black;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+    padding: 0px 2px;
+    text-align: left;
+}
+
+/* (breezewiki) theme selector */
+.bw-theme__select {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-gap: 0px 5px;
+    justify-content: right;
+    align-items: baseline;
+    margin-top: 4px;
+}
+.bw-theme__items {
+    display: flex;
+}
+.bw-theme__item {
+    display: inline-block;
+    display: flex;
+    align-items: baseline;
+    padding: 2px;
+    border: 1px solid var(--theme-border-color);
+    border-right-width: 0px;
+    background-color: var(--custom-table-background);
+    color: var(--theme-page-text-color);
+    transition: none;
+}
+.bw-theme__item:hover, .bw-theme__item:focus {
+    /* background-color: var(--theme-page-background-color); */
+    color: var(--theme-accent-color);
+}
+.bw-theme__item:first-child {
+    border-radius: 4px 0px 0px 4px;
+}
+.bw-theme__item:last-child {
+    border-radius: 0px 4px 4px 0px;
+    border-right-width: 1px;
+}
+.bw-theme__item--selected, .bw-theme__item--selected:hover, .bw-theme__item--selected:focus {
+    background-color: var(--theme-accent-color);
+    color: var(--theme-accent-label-color);
+}
+.bw-theme__icon-container svg {
+    vertical-align: middle;
+}
+
+/* nintendo independent wiki alliance notice */
+.niwa__notice {
+    background: #fdedd8;
+    color: black;
+    border: 1px dashed black;
+    padding: 3vw;
+    margin-bottom: 3vw;
+    border-radius: 6px;
+    font-size: 18px;
+}
+.niwa__notice--alt {
+    background: #e5fdd8;
+}
+.niwa__header {
+    font-size: max(2.75vw, 26px);
+    margin-top: 0;
+}
+.niwa__notice a {
+    color: #002263;
+    text-decoration: underline;
+}
+.niwa__notice .niwa__go {
+    display: inline-block;
+    border-radius: 20px;
+    padding: 16px 26px;
+    background: #f2f65f;
+    color: black;
+    text-decoration: none;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1.2;
+    border: 2px solid black;
+    box-shadow: 0 5px 0 black;
+    margin-bottom: 8px;
+}
+.niwa__notice .niwa__go:hover {
+    color: black;
+    text-decoration: underline;
+    background: #dee154;
+}
+.niwa__cols {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+}
+.niwa__logo {
+    width: 150px;
+    height: auto;
+}
+.niwa__divider {
+    height: 1px;
+    background: #808080;
+}
+.niwa__feedback {
+    font-size: 14px;
+    text-align: right;
+}
+/* more compact notice after it's been seen the first time */
+.niwa--seen {
+    padding: 1.5vw 2vw 2vw;
+    overflow-y: auto;
+    max-height: min(280px, 33vh);
+    font-size: 17px;
+    margin-top: -2vw;
+    margin-bottom: 12px;
+}
+.niwa--seen .niwa__header {
+    font-size: 26px;
+}
+.niwa--seen .niwa__go {
+    padding: 10px 18px;
+    font-size: 20px;
+}
+.niwa--seen .niwa__got-it {
+    display: none;
+}
+
+/* media queries */
+
+/* for reference, cell phone screens are generally 400 px wide, definitely less than 500 px */
+
+@media (min-width: 700px) { /* wider than 700 px */
+    /* category list columns */
+    .my-category-list {
+        columns: 3;
+    }
+}
+
+@media (max-width: 699px) { /* narrower than 700 px */
+    /* fit more text on screen */
+    body.skin-fandomdesktop, button, input, textarea, .wikitable, .va-table {
+        font-size: 16px;
+    }
+    /* niwa layout */
+    .niwa__right {
+        display: none;
+    }
+    /* remove balloons in top banner */
+    .bw-balloon {
+        display: none;
+    }
+}
+
+@media (min-width: 560px) { /* wider than 560 px */
+    /* footer columns */
+    .custom-footer__cols {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 559px) { /* narrower than 560 px */
+    /* attempt to make horizontal wiki page footers vertical instead - see /nfs/wiki/Need_for_Speed_Wiki */
+    [style*="width:calc(100%"] {
+        width: auto !important;
+        text-align: center !important;
+    }
+    /* make text content hit the edges of the screen (no space for the background) */
+    .page {
+        margin: 0;
+    }
+    .page__main {
+        background: linear-gradient(to bottom, rgba(var(--theme-page-background-color--rgb), 0), rgba(var(--theme-page-background-color--rgb), 1) 160px);
+    }
+    .page-title {
+        color: var(--theme-body-text-color);
+    }
+    /* don't squeeze text alongside infoboxes */
+    .infobox, .portable-infobox {
+        float: none;
+    }
+}
+
+/* *****
+ * Custom Font - all of windows' preinstalled fonts are garbage, so I have to add a custom one
+ * Source Sans Pro © 20100, 2012, 2014 Adobe Systems Incorporated
+ * font files licensed under the SIL Open Font License version 1.1 http://scripts.sil.org/OFL
+ * this license notice must be distributed with the font files.
+ * thanks to https://github.com/majodev/google-webfonts-helper/ for the downloader!
+ ***** */
+@font-face {
+  font-family: "Source Sans Pro";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Source Sans Pro"),
+       url("/static/source-sans-pro-v21-vietnamese_latin-ext_latin_greek-ext_greek_cyrillic-ext_cyrillic-regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/source-sans-pro-v21-vietnamese_latin-ext_latin_greek-ext_greek_cyrillic-ext_cyrillic-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/source-sans-pro-v21-vietnamese_latin-ext_latin_greek-ext_greek_cyrillic-ext_cyrillic-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans Pro";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/source-sans-pro-v21-vietnamese_latin-ext_latin_greek-ext_greek_cyrillic-ext_cyrillic-700italic.woff2") format("woff2");
+}
+
+@keyframes bw-rainbow-color {
+    0% {
+        filter: hue-rotate(0deg);
+    }
+    100% {
+        filter: hue-rotate(360deg);
+    }
+}
