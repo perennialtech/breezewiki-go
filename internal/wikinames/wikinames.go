@@ -78,6 +78,7 @@ func Download(ctx context.Context, client *http.Client, endpoint string, progres
 		if err != nil {
 			return nil, err
 		}
+		req.Header.Set("User-Agent", "BreezeWiki/1.0 (https://github.com/perennialtech/breezewiki-go)")
 		res, err := client.Do(req)
 		if err != nil {
 			return nil, err

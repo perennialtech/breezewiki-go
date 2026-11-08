@@ -7,11 +7,16 @@ import (
 	"log"
 	"os"
 
+	"github.com/perennialtech/breezewiki-go/internal/fandomhttp"
 	"github.com/perennialtech/breezewiki-go/internal/wikinames"
 )
 
 func main() {
-	entries, err := wikinames.Download(context.Background(), nil, "https://community.fandom.com/wiki/Special:NewWikis", func(offset string, count, total int) {
+	client, err := fandomhttp.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	entries, err := wikinames.Download(context.Background(), client, "https://community.fandom.com/wiki/Special:NewWikis", func(offset string, count, total int) {
 		fmt.Printf("page offset %q has %d items (%d so far)\n", offset, count, total)
 	})
 	if err != nil {
