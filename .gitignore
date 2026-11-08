@@ -1,8 +1,8 @@
 config.ini
 storage/
-breezewiki
-breezewiki-archiver
-breezewiki-archiver-gui
-breezewiki-index
+/breezewiki
+/breezewiki-archiver
+/breezewiki-archiver-gui
+/breezewiki-index
 
 wiki-names.json
