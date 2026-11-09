@@ -167,6 +167,28 @@ func TestJSONPAndPost(t *testing.T) {
 		t.Fatalf("canonical POST denied: %d", canonical.Code)
 	}
 }
+
+func TestKnownFandomWikiAliases(t *testing.T) {
+	s, _ := mockServer(t, nil, upstreamAPI)
+	for _, tc := range []struct{ path, destination string }{
+		{"/bfdi/wiki/Battle_for_Dream_Island", "/battlefordreamisland/wiki/Battle_for_Dream_Island"},
+		{"/mspa/wiki/Homestuck?oldid=99", "/mspaintadventures/wiki/Homestuck?oldid=99"},
+		{"/bfdi/wiki/Some%20Page?redirect=no", "/battlefordreamisland/wiki/Some%20Page?redirect=no"},
+		{"/b%66di/wiki/Page?oldid=99", "/battlefordreamisland/wiki/Page?oldid=99"},
+		{"/bfdi%2Fwiki%2FPage?oldid=99", "/battlefordreamisland%2Fwiki%2FPage?oldid=99"},
+		{"/mspa", "/mspaintadventures"},
+	} {
+		got := response(s, "GET", tc.path, nil, nil)
+		if got.Code != 302 || got.Header().Get("Location") != tc.destination {
+			t.Errorf("%s: status %d, location %q; want %q", tc.path, got.Code, got.Header().Get("Location"), tc.destination)
+		}
+	}
+	other := response(s, "GET", "/test/wiki/Page", nil, nil)
+	if other.Code != 200 {
+		t.Errorf("unrelated wiki returned %d", other.Code)
+	}
+}
+
 func TestStatusStaticSettingsSubdomain(t *testing.T) {
 	s, _ := mockServer(t, nil, upstreamAPI)
 	s.Config = config.New(map[string]string{"canonical_origin": "https://mirror.example"})

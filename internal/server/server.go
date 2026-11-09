@@ -82,6 +82,32 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if m := wikiPath.FindStringSubmatch(uri); m != nil {
 		wiki, rest := m[1], m[2]
+		var canonical string
+		switch wiki {
+		case "bfdi":
+			canonical = "battlefordreamisland"
+		case "mspa":
+			canonical = "mspaintadventures"
+		}
+		if canonical != "" {
+			escaped := r.URL.EscapedPath()
+			suffix := strings.TrimPrefix(escaped, "/")
+			i := 0
+			for n := 0; n < len(wiki); n++ {
+				if suffix[i] == '%' {
+					i += 3
+				} else {
+					i++
+				}
+			}
+			suffix = suffix[i:]
+			target := "/" + canonical + suffix
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			s.redirect(w, target)
+			return
+		}
 		switch {
 		case rest == "wiki/Special:Random":
 			s.randomPage(w, r, wiki)
