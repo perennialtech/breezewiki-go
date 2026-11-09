@@ -183,6 +183,9 @@ func General(data map[string]any) (name, base string) {
 	if s, ok := g["base"].(string); ok {
 		if i := strings.Index(s, "/wiki/"); i >= 0 {
 			base = s[i+6:]
+			if decoded, err := url.PathUnescape(base); err == nil {
+				base = decoded
+			}
 		}
 	}
 	return

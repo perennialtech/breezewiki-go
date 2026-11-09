@@ -177,3 +177,18 @@ func TestLocalizedCanonicalNamespacesAndEscapedSourceLink(t *testing.T) {
 		t.Errorf("source URL: %q", got)
 	}
 }
+
+func TestLocalizedHomepageEscapedTitle(t *testing.T) {
+	s, _ := mockServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("meta") == "siteinfo" {
+			_, _ = io.WriteString(w, `{"query":{"general":{"sitename":"Test Wiki","base":"https://mlp.fandom.com/es/wiki/P%C3%A1gina_principal"}}}`)
+			return
+		}
+		upstreamAPI(w, r)
+	})
+	got := response(s, "GET", "/mlp/es/wiki", nil, nil)
+	want := "/mlp/es/wiki/P%C3%A1gina_principal"
+	if got.Code != 302 || got.Header().Get("Location") != want {
+		t.Fatalf("localized home redirect: %d %q; want %q", got.Code, got.Header().Get("Location"), want)
+	}
+}
