@@ -16,6 +16,7 @@ import (
 
 	"github.com/perennialtech/breezewiki-go/internal/config"
 	"github.com/perennialtech/breezewiki-go/internal/fandom"
+	"github.com/perennialtech/breezewiki-go/internal/fandomhttp"
 	"github.com/perennialtech/breezewiki-go/internal/server"
 )
 
@@ -40,8 +41,16 @@ func run() error {
 			host = ""
 		}
 	}
-	s := server.New(cfg, fandom.New(cfg))
-	s.StaticDir = filepath.Join(root, "static")
+	client, err := fandomhttp.NewClient()
+	if err != nil {
+		return err
+	}
+	f := fandom.New(cfg)
+	f.HTTP = client
+	s := server.New(cfg, f)
+	if info, err := os.Stat(filepath.Join(root, "static")); err == nil && info.IsDir() {
+		s.StaticDir = filepath.Join(root, "static")
+	}
 	s.ArchiveDir = filepath.Join(root, "storage", "archive")
 	if cfg.True("feature_offline::enabled") {
 		if err := s.OpenArchiveDatabase(filepath.Join(root, "storage", "archiver.db")); err != nil {

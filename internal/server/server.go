@@ -3,11 +3,13 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html"
 	"io"
+	"io/fs"
 	"log"
 	"mime"
 	"net/http"
@@ -15,10 +17,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/perennialtech/breezewiki-go"
 	"github.com/perennialtech/breezewiki-go/internal/config"
 	"github.com/perennialtech/breezewiki-go/internal/fandom"
 	"github.com/perennialtech/breezewiki-go/internal/render"
@@ -40,8 +42,7 @@ type Server struct {
 	DB *sql.DB
 }
 
-// New creates a server with paths relative to the Go source tree. Callers can
-// override the paths to serve an installation outside the source tree.
+// New serves embedded assets by default. Set StaticDir to override them from disk.
 func New(cfg *config.Config, client *fandom.Client) *Server {
 	if cfg == nil {
 		cfg = config.New(nil)
@@ -49,10 +50,7 @@ func New(cfg *config.Config, client *fandom.Client) *Server {
 	if client == nil {
 		client = fandom.New(cfg)
 	}
-	_, filename, _, _ := runtime.Caller(0)
-	root := filepath.Clean(filepath.Join(filepath.Dir(filename), "../.."))
-	return &Server{Config: cfg, Fandom: client, StaticDir: filepath.Join(root, "static"),
-		ArchiveDir: filepath.Join(root, "storage", "archive")}
+	return &Server{Config: cfg, Fandom: client, ArchiveDir: filepath.Join("storage", "archive")}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -143,11 +141,19 @@ func (s *Server) common(w http.ResponseWriter) {
 		s.staticURL("main.css"), s.staticURL("preact.js")))
 }
 func (s *Server) staticURL(name string) string {
-	p := filepath.Join(s.StaticDir, name)
-	if st, err := os.Stat(p); err == nil {
-		return "/static/" + name + "?t=" + strconv.FormatInt(st.ModTime().Unix(), 10)
+	if s.StaticDir != "" {
+		p := filepath.Join(s.StaticDir, name)
+		if st, err := os.Stat(p); err == nil {
+			return "/static/" + name + "?t=" + strconv.FormatInt(st.ModTime().Unix(), 10)
+		}
+		return "/static/" + name
 	}
-	return "/static/" + name
+	data, err := fs.ReadFile(breezewiki.StaticFiles(), name)
+	if err != nil {
+		return "/static/" + name
+	}
+	digest := sha256.Sum256(data)
+	return fmt.Sprintf("/static/%s?t=%x", name, digest[:8])
 }
 func (s *Server) html(w http.ResponseWriter, status int, body string) {
 	s.common(w)
@@ -293,11 +299,20 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, uri string) {
 		s.notFound(w, r)
 		return
 	}
-	target := filepath.Join(root, filepath.FromSlash(rel))
-	info, err := os.Stat(target)
-	if err != nil || !info.Mode().IsRegular() {
-		s.notFound(w, r)
-		return
+	var embedded fs.FS
+	if root == "" {
+		embedded = breezewiki.StaticFiles()
+		info, err := fs.Stat(embedded, rel)
+		if err != nil || !info.Mode().IsRegular() {
+			s.notFound(w, r)
+			return
+		}
+	} else {
+		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel)))
+		if err != nil || !info.Mode().IsRegular() {
+			s.notFound(w, r)
+			return
+		}
 	}
 	s.common(w)
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -307,10 +322,14 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, uri string) {
 	} else {
 		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	}
-	if ct := assetMIME(target); ct != "" {
+	if ct := assetMIME(rel); ct != "" {
 		w.Header().Set("Content-Type", ct)
 	}
-	http.ServeFile(w, r, target)
+	if embedded != nil {
+		http.ServeFileFS(w, r, embedded, rel)
+	} else {
+		http.ServeFile(w, r, filepath.Join(root, filepath.FromSlash(rel)))
+	}
 }
 
 func assetMIME(filename string) string {
