@@ -14,6 +14,7 @@ const focus = signal(false)
 const st = signal("ready")
 const suggestions = signal([])
 const enterWasLastKey = signal(false)
+const selectedIndex = signal(-1)
 
 // processing functions
 
@@ -40,34 +41,38 @@ function fetchSuggestions(query, setSuggestions) {
 	return promise
 }
 
+function suggestionURL(hit) {
+	const url = new URL(hit.url)
+	return `/${BWData.wikiname}${url.pathname}${url.search}${url.hash}`
+}
+
 function acceptSuggestion(hit) {
 	st.value = "accepted"
 	query.value = hit.title
-	const dest = new URL(hit.url).pathname.match("/wiki/.*")
-	location = `/${BWData.wikiname}${dest}`
+	location = suggestionURL(hit)
 }
 
 // suggestion list view
 
-function Suggestion(hit) {
+function Suggestion({index, ...hit}) {
 	useSignalEffect(() => {
-		if (enterWasLastKey.value && st.value === "ready") {
+		if (index === 0 && selectedIndex.value === -1 && enterWasLastKey.value && st.value === "ready") {
 			enterWasLastKey.value.preventDefault()
 			acceptSuggestion(hit)
 		}
 	})
-	return html`<li class="bw-ss__item"><button type="button" class="bw-ss__button" onClick=${() => acceptSuggestion(hit)}>${hit.title}</button></li>`
+	return html`<li class="bw-ss__item"><a class=${classNames(["bw-ss__button", selectedIndex.value === index && "bw-ss__button--selected"])} href=${suggestionURL(hit)}>${hit.title}</a></li>`
 }
 
 function DefaultSearch({q}) {
 	if (!q) return ""
-	return html`<li class="bw-ss__item"><button type="submit" class="bw-ss__button">Results for "${q}"</button></li>`
+	return html`<li class="bw-ss__item"><button type="submit" class=${classNames(["bw-ss__button", selectedIndex.value === suggestions.value.length && "bw-ss__button--selected"])}>Results for "${q}"</button></li>`
 }
 
 function SuggestionList() {
 	return html`
 <ul class=${classNames(["bw-ss__list", focus.value && "bw-ss__list--focus", `bw-ss__list--${st.value}`])}>
-	${suggestions.value.map(hit => html`<${Suggestion} ...${hit} />`)}
+	${suggestions.value.map((hit, index) => html`<${Suggestion} ...${hit} index=${index} />`)}
 	<${DefaultSearch} q=${query.value} />
 </ul>`
 }
@@ -98,9 +103,31 @@ effect(() => {
 	}
 })
 
+function onSearchKeyDown(event) {
+	if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+		if (st.value !== "ready" || !query.value) return
+		event.preventDefault()
+		const options = suggestions.value.length + 1 // includes "Results for ..."
+		selectedIndex.value = event.key === "ArrowDown"
+			? (selectedIndex.value + 1) % (options + 1)
+			: (selectedIndex.value === -1 ? options - 1 : selectedIndex.value - 1)
+		if (selectedIndex.value === options) selectedIndex.value = -1
+		return
+	}
+	if (event.key === "Enter" && selectedIndex.value >= 0) {
+		enterWasLastKey.value = false
+		if (selectedIndex.value < suggestions.value.length) {
+			event.preventDefault()
+			acceptSuggestion(suggestions.value[selectedIndex.value])
+		}
+		return // allow the "Results for ..." entry to submit the form
+	}
+	enterWasLastKey.value = event.key === "Enter" && event
+}
+
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => query.value = e.target.value} onKeyDown=${e => enterWasLastKey.value = e.key === "Enter" && e} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { selectedIndex.value = -1; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)

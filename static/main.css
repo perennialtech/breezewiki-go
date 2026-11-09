@@ -326,7 +326,7 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
 .bw-ss__item {
     display: grid; /* make buttons take the full size */
 }
-.bw-ss__button:hover, .bw-ss__button:focus {
+.bw-ss__button:hover, .bw-ss__button:focus, .bw-ss__button--selected {
     background-color: #ddd;
 }
 .bw-ss__button {
@@ -341,6 +341,7 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
     cursor: pointer;
     padding: 0px 2px;
     text-align: left;
+    text-decoration: none;
 }
 
 /* (breezewiki) theme selector */
