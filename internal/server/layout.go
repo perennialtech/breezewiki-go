@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"html"
 	"net/http"
 	"net/url"
@@ -11,43 +10,23 @@ import (
 	"github.com/perennialtech/breezewiki-go/internal/fandom"
 )
 
-type archivedPageKey struct{}
-
 var styleLink = regexp.MustCompile(`<link\s+rel="stylesheet"[^>]*href="([^"]+)"[^>]*>`)
 var iconLink = regexp.MustCompile(`<link\s+rel="icon"[^>]*href="([^"]+)"[^>]*>`)
 
-// Renderer options deliberately do not expose online/offline stylesheet
-// selection or the strict_proxy preference. These are HTTP-layer choices,
-// so adjust only stylesheet/icon URLs in the finished document.
+// Proxy stylesheet and icon URLs at the HTTP layer when configured.
 func (s *Server) adjustPageAssets(document string, r *http.Request, wiki string) string {
-	offline, _ := r.Context().Value(archivedPageKey{}).(bool)
-	styleIndex := 0
-	document = styleLink.ReplaceAllStringFunc(document, func(tag string) string {
-		m := styleLink.FindStringSubmatch(tag)
-		if len(m) != 2 {
-			return tag
-		}
-		old := html.UnescapeString(m[1])
-		if !fandom.AllowedProxyURL(old) {
-			return tag
-		}
-		var replacement string
-		if offline {
-			if styleIndex == 0 {
-				replacement = "/archive/" + wiki + "/styles/themeVariables-" + theme(r) + ".css"
-			} else {
-				replacement = "/archive/" + wiki + "/styles/site.css"
-			}
-			styleIndex++
-		} else if s.Config.True("strict_proxy") {
-			replacement = "/proxy?dest=" + url.QueryEscape(old)
-		}
-		if replacement == "" {
-			return tag
-		}
-		return strings.Replace(tag, m[1], html.EscapeString(replacement), 1)
-	})
 	if s.Config.True("strict_proxy") {
+		document = styleLink.ReplaceAllStringFunc(document, func(tag string) string {
+			m := styleLink.FindStringSubmatch(tag)
+			if len(m) != 2 {
+				return tag
+			}
+			old := html.UnescapeString(m[1])
+			if !fandom.AllowedProxyURL(old) {
+				return tag
+			}
+			return strings.Replace(tag, m[1], html.EscapeString("/proxy?dest="+url.QueryEscape(old)), 1)
+		})
 		document = iconLink.ReplaceAllStringFunc(document, func(tag string) string {
 			m := iconLink.FindStringSubmatch(tag)
 			if len(m) != 2 {
@@ -76,7 +55,4 @@ func (s *Server) adjustPageAssets(document string, r *http.Request, wiki string)
 	script := "<script>BWData.path = " + jsonString(remotePath) +
 		"; BWData.strict_proxy = " + jsonString(s.Config.True("strict_proxy")) + ";</script>"
 	return strings.Replace(document, "</head>", script+"</head>", 1)
-}
-func markArchived(r *http.Request) *http.Request {
-	return r.WithContext(context.WithValue(r.Context(), archivedPageKey{}, true))
 }

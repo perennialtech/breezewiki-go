@@ -3,17 +3,18 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestDefaultsINIAndEnvironment(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "config.ini")
-	if err := os.WriteFile(filename, []byte("application_name = Example\n[feature_offline]\nenabled = true\nformat = json\n[promotions]\nindie_wiki_buddy = banner footer\n"), 0600); err != nil {
+	if err := os.WriteFile(filename, []byte("application_name = Example\n[feature_jsonp]\nenabled = false\n[access_log]\nenabled = true\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("BW_APPLICATION_NAME", "Environment")
-	t.Setenv("BW_feature_offline::format", "json.gz")
+	t.Setenv("BW_feature_jsonp::enabled", "true")
 	c, err := Load(filename)
 	if err != nil {
 		t.Fatal(err)
@@ -21,14 +22,11 @@ func TestDefaultsINIAndEnvironment(t *testing.T) {
 	if v := c.Get("application_name"); v != "Environment" {
 		t.Errorf("env precedence: %q", v)
 	}
-	if !c.True("feature_offline::enabled") || c.Get("feature_offline::format") != "json.gz" {
-		t.Errorf("section and BW_ overrides: %#v", c)
+	if !c.True("feature_jsonp::enabled") {
+		t.Error("environment override")
 	}
-	if !c.Member("promotions::indie_wiki_buddy", "footer") || c.Member("promotions::indie_wiki_buddy", "home") {
-		t.Error("membership")
-	}
-	if !c.True("feature_jsonp::enabled") || c.True("captcha::enabled") {
-		t.Error("defaults")
+	if !c.True("access_log::enabled") {
+		t.Error("section setting")
 	}
 }
 func TestMissingFileAndFalseSemantics(t *testing.T) {
@@ -39,11 +37,11 @@ func TestMissingFileAndFalseSemantics(t *testing.T) {
 	if c.Get("port") != "10416" {
 		t.Fatal("missing-file defaults")
 	}
-	c = New(map[string]string{"debug": "false", "strict_proxy": "", "captcha::enabled": "False"})
+	c = New(map[string]string{"debug": "false", "strict_proxy": "", "feature_search_suggestions": "False"})
 	if c.True("debug") || c.True("strict_proxy") {
 		t.Fatal("false values")
 	}
-	if !c.True("captcha::enabled") {
+	if !c.True("feature_search_suggestions") {
 		t.Fatal("only lowercase false is false")
 	}
 }
@@ -54,5 +52,17 @@ func TestInvalidINI(t *testing.T) {
 	}
 	if _, err := Load(file); err == nil {
 		t.Fatal("expected syntax error")
+	}
+}
+
+func TestHelpListsEveryDefault(t *testing.T) {
+	help := Help()
+	if !strings.Contains(help, "INI settings use [section]") || !strings.Contains(help, "section::key") {
+		t.Error("missing section syntax explanation")
+	}
+	for _, opt := range options {
+		if opt.description == "" || !strings.Contains(help, opt.key+" (default: ") {
+			t.Errorf("setting %q missing description or default", opt.key)
+		}
 	}
 }

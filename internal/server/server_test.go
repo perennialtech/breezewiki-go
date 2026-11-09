@@ -2,13 +2,10 @@ package server
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -196,119 +193,11 @@ func TestStatusStaticSettingsSubdomain(t *testing.T) {
 		t.Fatalf("unknown path %d", got.Code)
 	}
 }
-func TestOfflineAndArchiveAssets(t *testing.T) {
-	s, _ := mockServer(t, map[string]string{"feature_offline::enabled": "true", "feature_offline::only": "true", "feature_offline::format": "json.gz"}, upstreamAPI)
-	root := t.TempDir()
-	s.ArchiveDir = root
-	dir := filepath.Join(root, "minecraft")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	file, err := os.Create(filepath.Join(dir, "Category%3ABlocks#Foo.json.gz"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	gzipWriter := gzip.NewWriter(file)
-	_, err = gzipWriter.Write([]byte(`{"parse":{"title":"Category:Blocks/Foo","text":"<p>Saved article</p>"}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := gzipWriter.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatal(err)
-	}
-	got := response(s, "GET", "/minecraft/wiki/Category:Blocks/Foo", nil, nil)
-	// Categories route directly to the API even in offline mode, as upstream.
-	if got.Code == 200 && strings.Contains(got.Body.String(), "Saved article") {
-		t.Fatal("category unexpectedly served offline")
-	}
-	got = response(s, "GET", "/minecraft/wiki/Page_Saved", nil, nil)
-	if got.Code != 200 || !strings.Contains(got.Body.String(), "doesn't have this page saved") {
-		t.Fatalf("offline miss %d: %s", got.Code, got.Body.String())
-	}
-	file, err = os.Create(filepath.Join(dir, "Page_Saved.json.gz"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	zw := gzip.NewWriter(file)
-	_, _ = zw.Write([]byte(`{"parse":{"title":"Page Saved","text":"<p>Archived page</p>"}}`))
-	_ = zw.Close()
-	_ = file.Close()
-	got = response(s, "GET", "/minecraft/wiki/Page_Saved", nil, nil)
-	if got.Code != 200 || !strings.Contains(got.Body.String(), "Archived page") {
-		t.Fatalf("offline read %d: %s", got.Code, got.Body.String())
-	}
-	stylesDir := filepath.Join(dir, "styles")
-	_ = os.MkdirAll(stylesDir, 0755)
-	_ = os.WriteFile(filepath.Join(stylesDir, "site.css"), []byte("body{background:url(https://example.com/image.png)}"), 0644)
-	got = response(s, "GET", "/archive/minecraft/styles/site.css", nil, nil)
-	if got.Code != 200 || !strings.Contains(got.Body.String(), "/archive/minecraft/images/") {
-		t.Fatalf("offline CSS %d: %s", got.Code, got.Body.String())
-	}
-}
-func TestCaptcha(t *testing.T) {
-	s, _ := mockServer(t, map[string]string{"captcha::enabled": "true"}, upstreamAPI)
-	landing := response(s, "GET", "/test/wiki/Page", nil, nil)
-	if landing.Code != 200 || !strings.Contains(landing.Body.String(), "captcha-area") {
-		t.Fatal("missing captcha gate")
-	}
-	img := response(s, "GET", "/captcha/img/250/120", nil, nil)
-	if img.Code != 200 || !bytes.HasPrefix(img.Body.Bytes(), []byte("\x89PNG")) {
-		t.Fatalf("captcha image %d", img.Code)
-	}
-	req := httptest.NewRequest("GET", "/captcha/verify/0/0/0/0?from=%2Ftest", nil)
-	key := s.captchaKey(req)
-	verify := response(s, "GET", fmt.Sprintf("/captcha/verify/0/0/%d/0?from=%%2Ftest", key), nil, nil)
-	if verify.Code != 302 || verify.Header().Get("Location") != "/test" || len(verify.Result().Cookies()) == 0 {
-		t.Fatalf("captcha verify %d %v", verify.Code, verify.Header())
-	}
-	for _, from := range []string{"https://evil.example/test", "//evil.example/test", "https://example.com.evil/test"} {
-		target := fmt.Sprintf("/captcha/verify/0/0/%d/0?from=%s", key, url.QueryEscape(from))
-		blocked := response(s, "GET", target, nil, nil)
-		if blocked.Code != 404 || blocked.Header().Get("Location") != "" || len(blocked.Result().Cookies()) != 0 {
-			t.Fatalf("cross-origin captcha target %q permitted: %d", from, blocked.Code)
-		}
-	}
-	absolute := response(s, "GET", fmt.Sprintf("/captcha/verify/0/0/%d/0?from=%s", key, url.QueryEscape("http://example.com/test?foo=bar")), nil, nil)
-	if absolute.Code != 302 || absolute.Header().Get("Location") != "/test?foo=bar" {
-		t.Fatalf("same-origin captcha callback denied: %d %s", absolute.Code, absolute.Header().Get("Location"))
-	}
-}
-
-func TestSolrSearchAndFilters(t *testing.T) {
-	var query url.Values
-	solr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		query = r.URL.Query()
-		_, _ = io.WriteString(w, `{"responseHeader":{"QTime":13},"response":{"numFound":1,"docs":[{"id":"spawner","len":1200,"title":"Spawner"}]},"highlighting":{"spawner":{"title":["<mark>Spawner</mark>"],"body":["Enemy spawns here"]}}}`)
-	}))
-	defer solr.Close()
-	s, _ := mockServer(t, map[string]string{"feature_offline::search": "solr"}, upstreamAPI)
-	s.SolrBaseURL = solr.URL
-	got := response(s, "GET", "/test/search?q=spawn&op=or&sort=len", nil, nil)
-	if got.Code != 200 || !strings.Contains(got.Body.String(), "<mark>Spawner</mark>") || !strings.Contains(got.Body.String(), "Enemy spawns here") {
-		t.Fatalf("Solr search %d: %s", got.Code, got.Body.String())
-	}
-	if query.Get("q.op") != "OR" || query.Get("sort") != "len desc" || query.Get("hl.encoder") != "html" {
-		t.Fatalf("Solr query %v", query)
-	}
-}
-
-func TestStrictProxyAndOfflineStyles(t *testing.T) {
+func TestStrictProxyPage(t *testing.T) {
 	s, _ := mockServer(t, map[string]string{"strict_proxy": "true", "feature_jsonp::enabled": "false"}, upstreamAPI)
 	got := response(s, "GET", "/test/wiki/Page", nil, nil)
 	if got.Code != 200 || !strings.Contains(got.Body.String(), `/proxy?dest=https%3A%2F%2Ftest.fandom.com`) ||
 		!strings.Contains(got.Body.String(), `BWData.strict_proxy = true`) {
 		t.Fatalf("strict proxy page %d: %s", got.Code, got.Body.String())
-	}
-	s.Config = config.New(map[string]string{"feature_offline::enabled": "true", "feature_offline::only": "true", "feature_offline::format": "json"})
-	s.ArchiveDir = t.TempDir()
-	_ = os.MkdirAll(filepath.Join(s.ArchiveDir, "test"), 0755)
-	_ = os.WriteFile(filepath.Join(s.ArchiveDir, "test", "Page.json"), []byte(`{"parse":{"title":"Page","text":"<p>Content</p>"}}`), 0644)
-	got = response(s, "GET", "/test/wiki/Page", nil, map[string]string{"Cookie": "theme=dark"})
-	if got.Code != 200 || !strings.Contains(got.Body.String(), `/archive/test/styles/themeVariables-dark.css`) ||
-		!strings.Contains(got.Body.String(), `/archive/test/styles/site.css`) {
-		t.Fatalf("offline styles %d: %s", got.Code, got.Body.String())
 	}
 }

@@ -151,7 +151,6 @@ func Page(content string, opts Options) (string, error) {
 		return "", err
 	}
 	imports, err := json.Marshal(map[string]any{"imports": map[string]string{
-		"captcha":            staticURL("captcha.js"),
 		"countdown":          staticURL("countdown.js"),
 		"jsonp":              staticURL("jsonp.js"),
 		"preact":             staticURL("preact.js"),

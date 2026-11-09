@@ -22,9 +22,15 @@ import (
 
 func run() error {
 	var configFile, root string
+	var helpConfig bool
 	flag.StringVar(&configFile, "config", "config.ini", "path to config.ini (BW_ environment variables override it)")
-	flag.StringVar(&root, "root", ".", "directory containing static/ and storage/")
+	flag.StringVar(&root, "root", ".", "directory containing static/")
+	flag.BoolVar(&helpConfig, "help-config", false, "print all supported configuration settings and defaults")
 	flag.Parse()
+	if helpConfig {
+		fmt.Print(config.Help())
+		return nil
+	}
 	cfg, err := config.Load(configFile)
 	if err != nil {
 		return err
@@ -50,13 +56,6 @@ func run() error {
 	s := server.New(cfg, f)
 	if info, err := os.Stat(filepath.Join(root, "static")); err == nil && info.IsDir() {
 		s.StaticDir = filepath.Join(root, "static")
-	}
-	s.ArchiveDir = filepath.Join(root, "storage", "archive")
-	if cfg.True("feature_offline::enabled") {
-		if err := s.OpenArchiveDatabase(filepath.Join(root, "storage", "archiver.db")); err != nil {
-			return err
-		}
-		defer s.CloseArchiveDatabase()
 	}
 	srv := &http.Server{Addr: net.JoinHostPort(host, strconv.Itoa(port)), Handler: s, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 1 << 20}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

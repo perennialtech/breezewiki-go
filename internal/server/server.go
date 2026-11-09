@@ -1,10 +1,8 @@
-// Package server serves BreezeWiki's HTTP routes and offline assets.
+// Package server serves BreezeWiki's HTTP routes and static assets.
 package server
 
 import (
-	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -27,20 +25,13 @@ import (
 )
 
 var wikiPath = regexp.MustCompile(`^/([a-zA-Z0-9-]{1,50})(?:/(.*))?$`)
-var captchaImagePath = regexp.MustCompile(`^/captcha/img/([0-9]+)/([0-9]+)$`)
-var captchaVerifyPath = regexp.MustCompile(`^/captcha/verify/([0-9]+)/([0-9]+)/([0-9]+)/([0-9]+)$`)
 var redirectMessage = regexp.MustCompile(`(?is)<[^>]*class=["'][^"']*\bredirectMsg\b[^"']*["'][^>]*>.*?<a\b[^>]*href=["']([^"']+)["']`)
 
 type Server struct {
 	Config       *config.Config
 	Fandom       *fandom.Client
 	StaticDir    string
-	ArchiveDir   string
-	SolrBaseURL  string
 	genericCache genericCache
-	// DB is an optional database/sql-compatible connection to storage/archiver.db.
-	// When present, offline routes use the original wiki and page redirect tables.
-	DB *sql.DB
 }
 
 // New serves embedded assets by default. Set StaticDir to override them from disk.
@@ -51,7 +42,7 @@ func New(cfg *config.Config, client *fandom.Client) *Server {
 	if client == nil {
 		client = fandom.New(cfg)
 	}
-	return &Server{Config: cfg, Fandom: client, ArchiveDir: filepath.Join("storage", "archive")}
+	return &Server{Config: cfg, Fandom: client}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -78,20 +69,6 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.static(w, r, uri)
 		return
 	}
-	if m := captchaImagePath.FindStringSubmatch(uri); m != nil {
-		s.captchaImage(w, r, m)
-		return
-	}
-	if m := captchaVerifyPath.FindStringSubmatch(uri); m != nil {
-		s.captchaVerify(w, r, m)
-		return
-	}
-	if s.Config.True("captcha::enabled") && !strings.HasPrefix(uri, "/captcha/") {
-		if _, err := r.Cookie("captcha"); err != nil {
-			s.captcha(w, r)
-			return
-		}
-	}
 	switch uri {
 	case "/proxy":
 		s.proxy(w, r)
@@ -114,9 +91,6 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		case strings.HasPrefix(rest, "wiki/") && len(rest) > len("wiki/"):
 			page := strings.TrimPrefix(rest, "wiki/")
-			if s.Config.True("feature_offline::enabled") && s.offline(w, r, wiki, page) {
-				return
-			}
 			s.article(w, r, wiki, page, "wiki")
 			return
 		case rest == "search":
@@ -126,13 +100,6 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.redirectWiki(w, r, wiki)
 			return
 		}
-	}
-	if strings.HasPrefix(uri, "/archive/") {
-		if s.Config.True("feature_offline::enabled") && s.archiveAsset(w, r) {
-			return
-		}
-		s.static(w, r, uri)
-		return
 	}
 	s.notFound(w, r)
 }
@@ -199,7 +166,7 @@ func (s *Server) subdomain(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 func (s *Server) redirectWiki(w http.ResponseWriter, r *http.Request, wiki string) {
-	info := s.siteInfo(r.Context(), wiki)
+	info := s.Fandom.SiteInfo(r.Context(), wiki)
 	_, base := fandom.General(info)
 	s.redirect(w, "/"+wiki+"/wiki/"+base)
 }
@@ -284,12 +251,6 @@ func notices(r *http.Request) []string {
 	return strings.Split(cookie.Value, "|")
 }
 
-func (s *Server) siteInfo(ctx context.Context, wiki string) map[string]any {
-	if s.Config.True("feature_offline::only") {
-		return s.offlineSiteInfo(ctx, wiki)
-	}
-	return s.Fandom.SiteInfo(ctx, wiki)
-}
 func (s *Server) static(w http.ResponseWriter, r *http.Request, uri string) {
 	root := s.StaticDir
 	rel := ""
@@ -297,9 +258,6 @@ func (s *Server) static(w http.ResponseWriter, r *http.Request, uri string) {
 		rel = "robots.txt"
 	} else if strings.HasPrefix(uri, "/static/") {
 		rel = strings.TrimPrefix(uri, "/static/")
-	} else if strings.HasPrefix(uri, "/archive/") {
-		root = s.ArchiveDir
-		rel = strings.TrimPrefix(uri, "/archive/")
 	} else {
 		s.notFound(w, r)
 		return

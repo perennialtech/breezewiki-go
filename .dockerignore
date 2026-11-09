@@ -1,9 +1,4 @@
 .git
 config.ini
-storage/
 breezewiki
-breezewiki-archiver
-breezewiki-archiver-gui
-breezewiki-index
 wiki-names.json
-cache.rkt

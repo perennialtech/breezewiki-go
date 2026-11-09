@@ -9,26 +9,24 @@ import (
 	"strings"
 )
 
-var defaults = map[string]string{
-	"application_name":             "BreezeWiki",
-	"bind_host":                    "auto",
-	"port":                         "10416",
-	"canonical_origin":             "",
-	"debug":                        "false",
-	"feature_search_suggestions":   "true",
-	"instance_is_official":         "false",
-	"log_outgoing":                 "true",
-	"strict_proxy":                 "false",
-	"feature_offline::enabled":     "false",
-	"feature_offline::format":      "json.gz",
-	"feature_offline::only":        "false",
-	"feature_offline::search":      "fandom",
-	"feature_jsonp::enabled":       "true",
-	"captcha::enabled":             "false",
-	"captcha::log":                 "false",
-	"captcha::ip_header":           "",
-	"access_log::enabled":          "false",
-	"promotions::indie_wiki_buddy": "banner home",
+// option is an INI key and its built-in default and description.
+type option struct {
+	key, value, description string
+}
+
+// options is the source of truth for the supported settings and their help.
+var options = []option{
+	{"application_name", "BreezeWiki", "Name displayed in page footers and startup logs."},
+	{"bind_host", "auto", "Listening address. auto binds all interfaces, or loopback when debug is true."},
+	{"port", "10416", "TCP port for the HTTP server (1-65535)."},
+	{"canonical_origin", "", "Public URL for canonical links and subdomain redirects. Empty disables those features; POST origin checks then use the request host."},
+	{"debug", "false", "Disable static asset caching and bind loopback when bind_host is auto."},
+	{"feature_search_suggestions", "true", "Enable the client-side Fandom search suggestion widget."},
+	{"instance_is_official", "false", "Show the original BreezeWiki developer attribution as the instance operator."},
+	{"log_outgoing", "true", "Log outgoing Fandom API requests."},
+	{"strict_proxy", "false", "Route supported external image, stylesheet, and icon URLs through the local /proxy endpoint."},
+	{"feature_jsonp::enabled", "true", "Load wiki data in the browser instead of rendering it server-side on GET."},
+	{"access_log::enabled", "false", "Log incoming HTTP requests."},
 }
 
 // Config contains the effective string values. Like upstream, every value is
@@ -36,9 +34,9 @@ var defaults = map[string]string{
 type Config struct{ values map[string]string }
 
 func New(values map[string]string) *Config {
-	c := &Config{values: make(map[string]string, len(defaults)+len(values))}
-	for k, v := range defaults {
-		c.values[k] = v
+	c := &Config{values: make(map[string]string, len(options)+len(values))}
+	for _, opt := range options {
+		c.values[opt.key] = opt.value
 	}
 	for k, v := range values {
 		c.values[strings.ToLower(k)] = v
@@ -50,17 +48,6 @@ func (c *Config) Get(key string) string { return c.values[strings.ToLower(key)] 
 func (c *Config) True(key string) bool {
 	v := c.Get(key)
 	return v != "" && v != "false"
-}
-func (c *Config) Member(key, item string) bool {
-	if !c.True(key) {
-		return false
-	}
-	for _, s := range strings.Fields(c.Get(key)) {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
 
 // Load reads an optional INI file, then overlays BW_ environment values.
@@ -115,4 +102,14 @@ func Load(path string) (*Config, error) {
 		}
 	}
 	return New(values), nil
+}
+
+// Help lists supported INI settings and their effective default values.
+func Help() string {
+	var b strings.Builder
+	b.WriteString("INI settings use [section] and key = value. The names below use section::key notation for nested settings and BW_ environment overrides.\n\n")
+	for _, opt := range options {
+		fmt.Fprintf(&b, "%s (default: %q)\n  %s\n", opt.key, opt.value, opt.description)
+	}
+	return b.String()
 }
