@@ -86,7 +86,9 @@ effect(() => {
 	if (st.peek() === "accepted") return // lock results from changing during navigation
 	st.value = "loading"
 	fetchSuggestions(query.value).then(res => {
+        const resultsFocused = eSuggestions.querySelector("button:focus") !== null
 		suggestions.value = res
+        if (resultsFocused) selectedIndex.value = res.length
 		if (hitsDone.size === hitsPromise.size) {
 			st.value = "ready"
 		}
@@ -111,7 +113,12 @@ function onSearchKeyDown(event) {
 		selectedIndex.value = event.key === "ArrowDown"
 			? (selectedIndex.value + 1) % (options + 1)
 			: (selectedIndex.value === -1 ? options - 1 : selectedIndex.value - 1)
-		if (selectedIndex.value === options) selectedIndex.value = -1
+        if (selectedIndex.value === options) selectedIndex.value = -1
+        if (event.target !== eInput.querySelector("input")) {
+            const options = eSuggestions.querySelectorAll(".bw-ss__button")
+            const next = selectedIndex.value === -1 ? eInput.querySelector("input") : options[selectedIndex.value]
+            next?.focus()
+        }
 		return
 	}
 	if (event.key === "Enter" && selectedIndex.value >= 0) {
@@ -131,6 +138,7 @@ function SuggestionInput() {
 }
 
 render(html`<${SuggestionInput} />`, eInput)
+eSuggestions.addEventListener("keydown", onSearchKeyDown)
 
 // form focus
 
