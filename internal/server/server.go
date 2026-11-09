@@ -276,11 +276,6 @@ func (s *Server) siteInfo(ctx context.Context, wiki string) map[string]any {
 	}
 	return s.Fandom.SiteInfo(ctx, wiki)
 }
-func (s *Server) home(w http.ResponseWriter) {
-	app := html.EscapeString(s.Config.Get("application_name"))
-	out := "<!doctype html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>About | BreezeWiki</title><link rel=\"stylesheet\" href=\"" + s.staticURL("internal.css") + "\"><link rel=\"stylesheet\" href=\"" + s.staticURL("main.css") + "\"></head><body class=\"skin-fandomdesktop theme-fandomdesktop-light internal\"><div class=\"main-container\"><div class=\"page\"><main class=\"page__main\"><h1>About " + app + "</h1><div id=\"content\"><h2>BreezeWiki makes wiki pages on Fandom readable</h2><p>It removes ads, videos, and suggested content, leaving you with a clean page that doesn't slow down your device or use up your data.</p><h2>Find a page</h2><form action=\"/search\"><label>Wiki name <input name=\"wikiname\" placeholder=\"pokemon\" required></label><label>Search query <input name=\"q\" placeholder=\"Eevee\"></label><button>Search</button></form><h2>Example pages</h2><ul><li><a href=\"/minecraft/wiki/Bricks\">minecraft: Bricks</a></li><li><a href=\"/crosscode/wiki/CrossCode_Wiki\">crosscode: CrossCode Wiki</a></li><li><a href=\"/undertale/wiki/Hot_Dog...%3F\">undertale: Hot Dog...?</a></li><li><a href=\"/tardis/wiki/Eleanor_Blake\">tardis: Eleanor Blake</a></li><li><a href=\"/zelda/wiki/Boomerang\">zelda: Boomerang</a></li></ul><h2>What BreezeWiki isn't</h2><p>BreezeWiki isn't an alternative to Fandom, and it doesn't let you edit or write new pages.</p><p>If you want to create your own wiki, try Miraheze!</p></div></main></div></div></body></html>"
-	s.html(w, 200, out)
-}
 func (s *Server) static(w http.ResponseWriter, r *http.Request, uri string) {
 	root := s.StaticDir
 	rel := ""
