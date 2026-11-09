@@ -1,4 +1,4 @@
-import {h, htm, render, signal, computed, effect, useSignalEffect} from "preact"
+import {h, htm, render, signal, computed, effect, useSignalEffect, useLayoutEffect} from "preact"
 const html = htm.bind(h)
 const classNames = classArr => classArr.filter(el => el).join(" ")
 
@@ -15,6 +15,7 @@ const st = signal("ready")
 const suggestions = signal([])
 const enterWasLastKey = signal(false)
 const selectedIndex = signal(-1)
+let restoreResultsFocus = false
 
 // processing functions
 
@@ -65,6 +66,11 @@ function Suggestion({index, ...hit}) {
 }
 
 function DefaultSearch({q}) {
+    useLayoutEffect(() => {
+        if (!restoreResultsFocus) return
+        restoreResultsFocus = false
+        eSuggestions.querySelector('button[type="submit"]')?.focus()
+    })
 	if (!q) return ""
 	return html`<li class="bw-ss__item"><button type="submit" onFocus=${() => selectedIndex.value = suggestions.value.length} class=${classNames(["bw-ss__button", selectedIndex.value === suggestions.value.length && "bw-ss__button--selected"])}>Results for "${q}"</button></li>`
 }
@@ -72,8 +78,8 @@ function DefaultSearch({q}) {
 function SuggestionList() {
 	return html`
 <ul class=${classNames(["bw-ss__list", focus.value && "bw-ss__list--focus", `bw-ss__list--${st.value}`])}>
-	${suggestions.value.map((hit, index) => html`<${Suggestion} ...${hit} index=${index} />`)}
-	<${DefaultSearch} q=${query.value} />
+	${suggestions.value.map((hit, index) => html`<${Suggestion} key=${hit.url || hit.title} ...${hit} index=${index} />`)}
+	<${DefaultSearch} key="default-search" q=${query.value} />
 </ul>`
 }
 
@@ -87,8 +93,11 @@ effect(() => {
 	st.value = "loading"
 	fetchSuggestions(query.value).then(res => {
         const resultsFocused = eSuggestions.querySelector("button:focus") !== null
-		suggestions.value = res
-        if (resultsFocused) selectedIndex.value = res.length
+        if (resultsFocused) {
+            restoreResultsFocus = true
+            selectedIndex.value = res.length
+        }
+        suggestions.value = res
 		if (hitsDone.size === hitsPromise.size) {
 			st.value = "ready"
 		}
@@ -107,6 +116,7 @@ effect(() => {
 
 function onSearchKeyDown(event) {
 	if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        enterWasLastKey.value = false
 		if (st.value !== "ready" || !query.value) return
 		event.preventDefault()
 		const options = suggestions.value.length + 1 // includes "Results for ..."
