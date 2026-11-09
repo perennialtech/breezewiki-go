@@ -59,7 +59,9 @@ may still depend on Fandom's availability and anti-bot policies.
 Run the published image:
 
 ```sh
-docker run --rm -p 10416:10416 ghcr.io/perennialtech/breezewiki-go:latest
+docker run --rm --read-only --cap-drop=ALL \
+  --security-opt=no-new-privileges --publish 10416:10416 \
+  ghcr.io/perennialtech/breezewiki-go:latest
 ```
 
 Open `http://localhost:10416`. Alternatively, use the included `compose.yaml`:
@@ -68,9 +70,12 @@ Open `http://localhost:10416`. Alternatively, use the included `compose.yaml`:
 docker compose up -d
 ```
 
-The container listens on all interfaces at port `10416`, uses embedded assets,
-and supports the same `BW_` environment variables as the native server. For
-example, pass `-e BW_ACCESS_LOG::ENABLED=true` to `docker run` to log requests.
+The container runs as a non-root user, listens on all interfaces at port
+`10416`, and uses embedded assets. Both examples run with a read-only root
+filesystem, dropped Linux capabilities, and no privilege escalation. The
+container supports the same `BW_` environment variables as the native server.
+For example, pass `-e BW_ACCESS_LOG::ENABLED=true` to `docker run` to
+log requests.
 
 ## Other tools and development
 
