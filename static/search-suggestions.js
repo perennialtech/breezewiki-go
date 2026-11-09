@@ -35,6 +35,9 @@ function fetchSuggestions(query, setSuggestions) {
 			title: root[1][i],
 			url: root[3][i]
 		}))
+	}).catch(() => {
+		hitsDone.add(query)
+		return []
 	})
 	hitsPromise.set(query, promise)
 	return promise
