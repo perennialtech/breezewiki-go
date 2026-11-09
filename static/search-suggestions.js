@@ -7,7 +7,6 @@ const eInput = document.getElementById("bw-pr-search-input")
 const eSuggestions = document.getElementById("bw-pr-search-suggestions")
 
 const hitsPromise = new Map()
-const hitsDone = new Set()
 
 const query = signal("")
 const focus = signal(false)
@@ -19,7 +18,7 @@ let focusAfterUpdate = null
 
 // processing functions
 
-function fetchSuggestions(query, setSuggestions) {
+function fetchSuggestions(query) {
 	if (query === "") query = "\0"
 	if (hitsPromise.has(query)) return hitsPromise.get(query)
 	const url = new URL(`https://${BWData.wikiname}.fandom.com/api.php`)
@@ -32,13 +31,12 @@ function fetchSuggestions(query, setSuggestions) {
 			? "/proxy?" + new URLSearchParams({dest: url})
 			: url
 	const promise = fetch(sendUrl).then(res => res.json()).then(root => {
-		hitsDone.add(query)
 		return Array(root[1].length).fill().map((_, i) => ({
 			title: root[1][i],
 			url: root[3][i]
 		}))
-	})
-	hitsPromise.set(query, promise)
+    }).catch(() => null)
+    hitsPromise.set(query, promise)
 	return promise
 }
 
@@ -88,23 +86,24 @@ effect(() => {
     st.value = "loading"
     fetchSuggestions(requested).then(res => {
         if (requested !== query.value) return
+        const results = res ?? []
         const focused = eSuggestions.querySelector(".bw-ss__button:focus")
         if (focused) {
             const href = focused.getAttribute("href")
-            let index = href === null ? res.length : res.findIndex(hit => suggestionURL(hit) === href)
-            if (index < 0) index = Math.min(Math.max(selectedIndex.peek(), 0), res.length)
+            let index = href === null ? results.length : results.findIndex(hit => suggestionURL(hit) === href)
+            if (index < 0) index = Math.min(Math.max(selectedIndex.peek(), 0), results.length)
             focusAfterUpdate = index
             batch(() => {
-                suggestions.value = res
+                suggestions.value = results
                 selectedIndex.value = index
             })
         } else {
-            suggestions.value = res
+            suggestions.value = results
         }
         st.value = "ready"
         if (pendingEnter) {
             pendingEnter = false
-            if (res.length) acceptSuggestion(res[0])
+            if (results.length) acceptSuggestion(results[0])
             else eForm.requestSubmit()
         }
     })
