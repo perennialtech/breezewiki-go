@@ -314,3 +314,16 @@ func TestPageEscapesMetadata(t *testing.T) {
 	requireContains(t, got, `&lt;script&gt;alert(1)&lt;/script&gt;`, `App &amp; &#34;friends&#34;`, `<div>raw</div>`)
 	requireAbsent(t, got, `<title><script>`)
 }
+
+func TestArticleHistoryLink(t *testing.T) {
+	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article", SourceURL: "https://example.fandom.com/wiki/Article"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `href="https://example.fandom.com/wiki/Article?action=history">History</a>`)
+	search, err := Page("Search", Options{Wiki: "example", Title: "Search", Path: "/example/search", SourceURL: "https://example.fandom.com/wiki/Special:Search"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireAbsent(t, search, `>History</a>`)
+}
