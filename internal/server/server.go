@@ -82,6 +82,17 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if m := wikiPath.FindStringSubmatch(uri); m != nil {
 		wiki, rest := m[1], m[2]
+		var canonical string
+		switch wiki {
+		case "bfdi":
+			canonical = "battlefordreamisland"
+		case "mspa":
+			canonical = "mspaintadventures"
+		}
+		if canonical != "" {
+			s.redirect(w, "/"+canonical+strings.TrimPrefix(r.URL.RequestURI(), "/"+wiki))
+			return
+		}
 		switch {
 		case strings.HasPrefix(rest, "wiki/Category:") && len(rest) > len("wiki/Category:"):
 			s.article(w, r, wiki, strings.TrimPrefix(rest, "wiki/"), "category")
