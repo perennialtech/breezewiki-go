@@ -30,7 +30,7 @@ func parseEndpoint(title string, extra string) endpoint {
 func endpoints(kind, path, query string) []endpoint {
 	switch kind {
 	case "wiki":
-		return []endpoint{parseEndpoint(path, "")}
+		return []endpoint{parseEndpoint(path, "categories")}
 	case "category":
 		return []endpoint{
 			{"membersdata", []fandom.Param{param("action", "query"), param("list", "categorymembers"), param("cmtitle", path), param("cmlimit", "max"), param("formatversion", "2"), param("format", "json")}},
@@ -127,6 +127,19 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 		}
 		content = fandom.ParseText(p)
 		head = fandom.String(p, "parse", "headhtml")
+		if categories := asList(fandom.Value(p, "parse", "categories")); len(categories) > 0 {
+			var b strings.Builder
+			b.WriteString(`<nav aria-label="Categories"><p>Categories: `)
+			for i, item := range categories {
+				if i > 0 {
+					b.WriteString(" · ")
+				}
+				name := fandom.String(item, "category")
+				b.WriteString(`<a href="` + quote(linkTo(wiki, "Category:"+name)) + `">` + quote(strings.ReplaceAll(name, "_", " ")) + `</a>`)
+			}
+			b.WriteString("</p></nav>")
+			content += b.String()
+		}
 	case "category":
 		p := data["pagedata"]
 		title = fandom.String(p, "parse", "title")
