@@ -151,9 +151,13 @@ func Page(content string, opts Options) (string, error) {
 	if resourceLang == "" {
 		resourceLang = "en"
 	}
+	resourceOrigin := origin
+	if opts.Lang != "" {
+		resourceOrigin += "/" + opts.Lang
+	}
 	styles := []string{
-		origin + "/wikia.php?controller=ThemeApi&method=themeVariables&variant=" + url.QueryEscape(theme),
-		origin + "/load.php?lang=" + url.QueryEscape(resourceLang) + "&modules=site.styles%7Cskin.fandomdesktop.styles%7Cext.fandom.PortableInfoboxFandomDesktop.css%7Cext.fandom.GlobalComponents.CommunityHeaderBackground.css%7Cext.fandom.photoGallery.gallery.css%7Cext.gadget.site-styles%2Csound-styles&only=styles&skin=fandomdesktop",
+		resourceOrigin + "/wikia.php?controller=ThemeApi&method=themeVariables&variant=" + url.QueryEscape(theme),
+		resourceOrigin + "/load.php?lang=" + url.QueryEscape(resourceLang) + "&modules=site.styles%7Cskin.fandomdesktop.styles%7Cext.fandom.PortableInfoboxFandomDesktop.css%7Cext.fandom.GlobalComponents.CommunityHeaderBackground.css%7Cext.fandom.photoGallery.gallery.css%7Cext.gadget.site-styles%2Csound-styles&only=styles&skin=fandomdesktop",
 	}
 	jsData, err := json.Marshal(map[string]any{"wikiname": opts.Wiki, "lang": opts.Lang, "strict_proxy": false, "path": pathForPage(opts), "jsonp": nil})
 	if err != nil {

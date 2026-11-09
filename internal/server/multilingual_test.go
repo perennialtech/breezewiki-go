@@ -45,6 +45,7 @@ func TestMultilingualRoutes(t *testing.T) {
 		`href="/mlp/es/wiki/Local"`, `href="/mlp/es/wiki/Implicit"`, `href="/mlp/es/wiki/Another"`,
 		`action="/mlp/es/search"`, `href="https://bw.example/mlp/es/wiki/Page_One"`,
 		`https://mlp.fandom.com/es/wiki/Page_One`, `"lang":"es"`, `BWData.path = "Page_One"`,
+		`https://mlp.fandom.com/es/wikia.php?controller=ThemeApi`, `https://mlp.fandom.com/es/load.php?lang=es`,
 	} {
 		if page.Code != 200 || !strings.Contains(page.Body.String(), want) {
 			t.Errorf("language article %d missing %q", page.Code, want)
@@ -110,5 +111,23 @@ func TestLocalizedCanonicalURLPreservesEncodedTitle(t *testing.T) {
 	got := response(s, "GET", "/mlp/es/wiki/What%3F", nil, nil)
 	if got.Code != 200 || !strings.Contains(got.Body.String(), `rel="canonical" href="https://mirror.example/mlp/es/wiki/What%3F"`) {
 		t.Fatalf("canonical title encoding missing: %d %s", got.Code, got.Body.String())
+	}
+}
+
+func TestLocalizedCategoryAndFileNamespaces(t *testing.T) {
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("meta") == "siteinfo" {
+			_, _ = io.WriteString(w, `{"query":{"general":{"sitename":"Spanish Wiki","base":"/es/wiki/Inicio"},"namespaces":{"6":{"id":6,"name":"Archivo","canonical":"File"},"14":{"id":14,"name":"Categoría","canonical":"Category"}}}}`)
+			return
+		}
+		upstreamAPI(w, r)
+	})
+	category := response(s, "GET", "/mlp/es/wiki/Categor%C3%ADa:Alicornio", nil, nil)
+	if category.Code != 200 || !strings.Contains(category.Body.String(), "All Pages in") || !strings.Contains(category.Body.String(), "Leaf_Block") {
+		t.Fatalf("localized category did not show members: %d", category.Code)
+	}
+	file := response(s, "GET", "/mlp/es/wiki/Archivo:File.png", nil, nil)
+	if file.Code != 200 || !strings.Contains(file.Body.String(), "Download original file") {
+		t.Fatalf("localized file omitted metadata: %d", file.Code)
 	}
 }

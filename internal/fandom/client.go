@@ -128,7 +128,7 @@ func (c *Client) API(ctx context.Context, wiki, lang string, params []Param, the
 }
 
 var SiteInfoParams = []Param{
-	{"action", "query"}, {"meta", "siteinfo"}, {"siprop", "general|rightsinfo"},
+	{"action", "query"}, {"meta", "siteinfo"}, {"siprop", "general|rightsinfo|namespaces|namespacealiases"},
 	{"format", "json"}, {"formatversion", "2"},
 }
 var DefaultSiteInfo = map[string]any{"query": map[string]any{

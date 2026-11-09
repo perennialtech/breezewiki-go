@@ -96,7 +96,11 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		case strings.HasPrefix(rest, "wiki/") && len(rest) > len("wiki/"):
 			page := strings.TrimPrefix(rest, "wiki/")
-			s.article(w, r, wiki, lang, page, "wiki")
+			kind := "wiki"
+			if lang != "" && strings.Contains(page, ":") {
+				kind = s.localizedNamespaceKind(r, wiki, lang, page)
+			}
+			s.article(w, r, wiki, lang, page, kind)
 			return
 		case rest == "search":
 			s.article(w, r, wiki, lang, "", "search")
@@ -108,6 +112,25 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	s.notFound(w, r)
 }
+func (s *Server) localizedNamespaceKind(r *http.Request, wiki, lang, page string) string {
+	prefix, _, _ := strings.Cut(page, ":")
+	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
+	for _, namespace := range []struct{ id, kind string }{{"6", "file"}, {"14", "category"}} {
+		name := fandom.String(info, "query", "namespaces", namespace.id, "name")
+		if name != "" && strings.EqualFold(prefix, name) {
+			return namespace.kind
+		}
+		aliases, _ := fandom.Value(info, "query", "namespacealiases").([]any)
+		for _, alias := range aliases {
+			id, _ := fandom.Value(alias, "id").(float64)
+			if int(id) == func() int { n, _ := strconv.Atoi(namespace.id); return n }() && strings.EqualFold(prefix, fandom.String(alias, "alias")) {
+				return namespace.kind
+			}
+		}
+	}
+	return "wiki"
+}
+
 func (s *Server) common(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Link", fmt.Sprintf("<%s>; rel=preload; as=style, <%s>; rel=preload; as=script, <%s>; rel=preload; as=font; crossorigin; type=font/woff2",
