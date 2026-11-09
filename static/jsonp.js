@@ -82,8 +82,6 @@ async function cont() {
 		console.log(xhr)
 		// check for errors
 		if (xhr.status === 500) return fetch(pkg.url, pkg.init).then(res => res.text()).then(error)
-		// check for captcha screen
-		if (xhr.responseXML.head.querySelector('script[src*="captcha.js"]')) return location.reload()
 		// page -> #content
 		const imported = document.importNode(xhr.responseXML.getElementById("content"), true)
 		document.getElementById("content").replaceWith(imported)

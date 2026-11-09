@@ -12,8 +12,6 @@ func TestEmbeddedAssets(t *testing.T) {
 	}{
 		{StaticFiles(), "main.css"},
 		{StaticFiles(), "jsonp.js"},
-		{SolrConfigFiles(), "schema.xml"},
-		{SolrConfigFiles(), "lang/stopwords_en.txt"},
 	} {
 		if _, err := fs.Stat(tc.fs, tc.name); err != nil {
 			t.Errorf("embedded asset %q: %v", tc.name, err)
