@@ -92,7 +92,10 @@ export function initSortableTables() {
                 cell.setAttribute("aria-sort", ascending ? "ascending" : "descending")
                 ascending = !ascending
             }
-			cell.addEventListener("click", sort)
+            cell.addEventListener("click", event => {
+                if (event.target.closest("a, button, input, select, textarea")) return
+                sort()
+            })
 			cell.addEventListener("keydown", event => {
                 if (event.target !== cell) return
 				if (event.key === "Enter" || event.key === " ") {
