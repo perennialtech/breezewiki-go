@@ -7,7 +7,6 @@ const eInput = document.getElementById("bw-pr-search-input")
 const eSuggestions = document.getElementById("bw-pr-search-suggestions")
 
 const hitsPromise = new Map()
-const hitsDone = new Set()
 
 const query = signal("")
 const focus = signal(false)
@@ -30,13 +29,11 @@ function fetchSuggestions(query, setSuggestions) {
 			? "/proxy?" + new URLSearchParams({dest: url})
 			: url
 	const promise = fetch(sendUrl).then(res => res.json()).then(root => {
-		hitsDone.add(query)
 		return Array(root[1].length).fill().map((_, i) => ({
 			title: root[1][i],
 			url: root[3][i]
 		}))
 	}).catch(() => {
-		hitsDone.add(query)
 		return null
 	})
 	hitsPromise.set(query, promise)
@@ -85,13 +82,12 @@ effect(() => {
 	st.value = "loading"
 	const requested = query.value
 	fetchSuggestions(requested).then(res => {
-		if (res === null && requested === query.value && enterWasLastKey.peek()?.defaultPrevented) {
+		if (requested !== query.value) return
+		suggestions.value = res ?? []
+		if (!res?.length && enterWasLastKey.peek()?.defaultPrevented) {
 			enterWasLastKey.value = false
 			eForm.requestSubmit()
-			return
-		}
-		suggestions.value = res ?? []
-		if (hitsDone.size === hitsPromise.size) {
+		} else {
 			st.value = "ready"
 		}
 	})
