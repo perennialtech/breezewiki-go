@@ -41,9 +41,10 @@ export function initSortableTables() {
 		const headers = table.tHead ? Array.from(table.tHead.rows) : []
 		if (!table.tHead) {
 			for (const row of firstBody.rows) {
-				if (!row.cells.length || !Array.from(row.cells).every(cell => cell.tagName === "TH" && cell.scope !== "row")) break
-				headers.push(row)
-			}
+                if (headers.length && !Array.from(headers.at(-1).cells).some(cell => cell.colSpan > 1 || cell.rowSpan > 1)) break
+                if (!row.cells.length || !Array.from(row.cells).every(cell => cell.tagName === "TH" && cell.scope !== "row")) break
+                headers.push(row)
+            }
 		}
 		if (!headers.length) continue
 		table.dataset.bwSortable = "1"
