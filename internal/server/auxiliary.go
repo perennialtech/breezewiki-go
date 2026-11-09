@@ -162,7 +162,31 @@ func (s *Server) captchaImage(w http.ResponseWriter, r *http.Request, m []string
 		fmt.Printf("captcha PNG: %v\n", err)
 	}
 }
+
+// captchaReturnPath accepts both same-origin absolute URLs (emitted by the
+// bundled captcha.js) and local paths, but not off-site redirect targets.
+func (s *Server) captchaReturnPath(r *http.Request) string {
+	from := r.URL.Query().Get("from")
+	if localReturnPath(from) {
+		return from
+	}
+	u, err := url.Parse(from)
+	if err != nil || u.Host == "" || u.User != nil || !s.allowedPOSTOrigin(r, u.Scheme+"://"+u.Host) {
+		return ""
+	}
+	path := u.RequestURI()
+	if localReturnPath(path) {
+		return path
+	}
+	return ""
+}
+
 func (s *Server) captchaVerify(w http.ResponseWriter, r *http.Request, m []string) {
+	from := s.captchaReturnPath(r)
+	if from == "" {
+		s.notFound(w, r)
+		return
+	}
 	wid, _ := strconv.Atoi(m[1])
 	hei, _ := strconv.Atoi(m[2])
 	x, _ := strconv.Atoi(m[3])
@@ -184,11 +208,6 @@ func (s *Server) captchaVerify(w http.ResponseWriter, r *http.Request, m []strin
 	if ok {
 		http.SetCookie(w, &http.Cookie{Name: "captcha", Value: method, Path: "/",
 			Secure: method == "key", HttpOnly: method == "key", MaxAge: int((10 * 365 * 24 * time.Hour) / time.Second)})
-	}
-	from := r.URL.Query().Get("from")
-	if from == "" {
-		s.notFound(w, r)
-		return
 	}
 	s.common(w)
 	w.Header().Set("Location", from)

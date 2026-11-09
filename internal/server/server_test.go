@@ -264,6 +264,17 @@ func TestCaptcha(t *testing.T) {
 	if verify.Code != 302 || verify.Header().Get("Location") != "/test" || len(verify.Result().Cookies()) == 0 {
 		t.Fatalf("captcha verify %d %v", verify.Code, verify.Header())
 	}
+	for _, from := range []string{"https://evil.example/test", "//evil.example/test", "https://example.com.evil/test"} {
+		target := fmt.Sprintf("/captcha/verify/0/0/%d/0?from=%s", key, url.QueryEscape(from))
+		blocked := response(s, "GET", target, nil, nil)
+		if blocked.Code != 404 || blocked.Header().Get("Location") != "" || len(blocked.Result().Cookies()) != 0 {
+			t.Fatalf("cross-origin captcha target %q permitted: %d", from, blocked.Code)
+		}
+	}
+	absolute := response(s, "GET", fmt.Sprintf("/captcha/verify/0/0/%d/0?from=%s", key, url.QueryEscape("http://example.com/test?foo=bar")), nil, nil)
+	if absolute.Code != 302 || absolute.Header().Get("Location") != "/test?foo=bar" {
+		t.Fatalf("same-origin captcha callback denied: %d %s", absolute.Code, absolute.Header().Get("Location"))
+	}
 }
 
 func TestSolrSearchAndFilters(t *testing.T) {
