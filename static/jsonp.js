@@ -109,7 +109,7 @@ async function cont() {
 		}
 		// scroll
 		if (location.hash) {
-			document.getElementById(location.hash.slice(1)).scrollIntoView({behavior: "instant"})
+			document.getElementById(location.hash.slice(1))?.scrollIntoView({behavior: "instant"})
 		}
 		// redirects
 		const redirectTo = document.querySelector("#content .redirectMsg a")
