@@ -77,6 +77,26 @@ func TestWikiLinkAndImages(t *testing.T) {
 	}
 }
 
+func TestCommunityInterwikiLinks(t *testing.T) {
+	got := mustRewrite(t, `<div>
+		<a href="https://community.fandom.com/wiki/w:c:zelda:Link">Article</a>
+		<a href="https://community.fandom.com/wiki/w:c:battlefordreamisland:Battle_for_Dream_Island?oldid=42#Plot">Section</a>
+		<a href="https://community.fandom.com/wiki/w:c:mlp%3ACherry_Berry">Wikidata article</a>
+		<a href="https://community.fandom.com/wiki/w:c:naruto-fandom%3AMangeky%C5%8D_Sharingan">Encoded title</a>
+		<a href="https://community.fandom.com/wiki/w:c:battlefordreamisland">Wiki</a>
+		<a href="https://community.fandom.com/wiki/Main_Page">Community</a>
+		<a href="https://example.org/wiki/w:c:zelda:Link">External</a>
+	</div>`)
+	requireContains(t, got,
+		`href="/zelda/wiki/Link"`,
+		`href="/battlefordreamisland/wiki/Battle_for_Dream_Island?oldid=42#Plot"`,
+		`href="/mlp/wiki/Cherry_Berry"`,
+		`href="/naruto-fandom/wiki/Mangeky%C5%8D_Sharingan"`,
+		`href="/battlefordreamisland/wiki/"`,
+		`href="/community/wiki/Main_Page"`,
+		`href="https://example.org/wiki/w:c:zelda:Link"`)
+}
+
 func TestStrictProxyUpstreamExamples(t *testing.T) {
 	got, err := RewriteWithProxy(`<div style="background-image:url('https://static.wikia.nocookie.net/bg.png')">
 		<a class="image image-thumbnail" href="https://static.wikia.nocookie.net/original.png">
