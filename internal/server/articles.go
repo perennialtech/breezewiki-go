@@ -45,7 +45,7 @@ func endpoints(kind, path, query string) []endpoint {
 		}
 	case "search":
 		return []endpoint{
-			{"search", []fandom.Param{param("action", "query"), param("list", "search"), param("srsearch", query), param("formatversion", "2"), param("format", "json")}},
+			{"search", []fandom.Param{param("action", "query"), param("list", "search"), param("srsearch", query), param("srlimit", "50"), param("formatversion", "2"), param("format", "json")}},
 		}
 	}
 	return nil
