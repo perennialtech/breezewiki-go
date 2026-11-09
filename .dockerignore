@@ -1,4 +1,12 @@
-.git
-config.ini
-breezewiki
-wiki-names.json
+# Include only the source files and embedded assets needed to build the server.
+**
+!go.mod
+!go.sum
+!assets.go
+!cmd/
+!cmd/**/*.go
+!internal/
+!internal/**/*.go
+!internal/render/notices.json
+!static/
+!static/**
