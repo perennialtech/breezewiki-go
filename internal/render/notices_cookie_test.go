@@ -49,3 +49,18 @@ func TestIndependentWikiNoticeStartsCompact(t *testing.T) {
 		t.Fatal("notice details should start collapsed")
 	}
 }
+
+func TestParallelAndRedirectNoticesRemainCompact(t *testing.T) {
+	parallel := externalWikiNotice(Options{Wiki: "xenoblade", Title: "Shulk"})
+	for _, want := range []string{`class="niwa__summary"`, `<details class="niwa__details">`, `<summary>More information</summary>`, "See also", "multiple communities"} {
+		if !strings.Contains(parallel, want) {
+			t.Errorf("parallel missing %q", want)
+		}
+	}
+	redirect := externalWikiNotice(Options{Wiki: "calamitymod", Title: "Item"})
+	for _, want := range []string{`class="niwa__go"`, `<details class="niwa__details">`, "Take me there!", `niwa__notice--alt`} {
+		if !strings.Contains(redirect, want) {
+			t.Errorf("redirect missing %q", want)
+		}
+	}
+}

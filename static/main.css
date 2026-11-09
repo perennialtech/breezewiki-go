@@ -429,6 +429,19 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
 .niwa__notice .niwa__go:hover {
     color: #002263;
 }
+.niwa__notice--alt .niwa__go {
+    display: inline-block;
+    padding: 6px 12px;
+    border: 1px solid #000;
+    background: #f2f65f;
+    color: #000;
+    text-decoration: none;
+}
+.niwa__notice--alt .niwa__go:hover {
+    background: #dee154;
+    color: #000;
+    text-decoration: underline;
+}
 .niwa__got-it {
     margin-inline-start: auto;
 }
