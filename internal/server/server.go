@@ -158,8 +158,11 @@ func (s *Server) subdomain(w http.ResponseWriter, r *http.Request) bool {
 	if strings.HasSuffix(host, "."+u.Hostname()) {
 		wiki := strings.TrimSuffix(host, "."+u.Hostname())
 		if !strings.Contains(wiki, ".") && wiki != "" {
-			// Upstream does not carry the query string to this redirect.
-			s.redirect(w, strings.TrimRight(origin, "/")+"/"+wiki+"/"+strings.TrimPrefix(r.URL.Path, "/"))
+			dest := strings.TrimRight(origin, "/") + "/" + wiki + r.URL.EscapedPath()
+			if r.URL.RawQuery != "" || r.URL.ForceQuery {
+				dest += "?" + r.URL.RawQuery
+			}
+			s.redirect(w, dest)
 			return true
 		}
 	}
