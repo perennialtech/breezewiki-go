@@ -66,3 +66,63 @@ func TestHelpListsEveryDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestGeneratedExamplesContainEveryDefault(t *testing.T) {
+	ini, err := Example("ini")
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := Example("env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(t.TempDir(), "config.ini")
+	if err := os.WriteFile(file, []byte(ini), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, opt := range options {
+		if got := cfg.Get(opt.key); got != opt.value {
+			t.Errorf("INI default %q: got %q, want %q", opt.key, got, opt.value)
+		}
+		key := opt.key
+		if _, name, ok := strings.Cut(key, "::"); ok {
+			key = name
+		}
+		value := opt.value
+		if value != "" {
+			value = " " + value
+		}
+		if !strings.Contains(ini, "\n"+key+" ="+value+"\n") {
+			t.Errorf("INI example missing %q", opt.key)
+		}
+		line := "\nBW_" + strings.ToUpper(opt.key) + "=" + opt.value + "\n"
+		if count := strings.Count("\n"+env, line); count != 1 {
+			t.Errorf("env example: %q occurs %d times", line, count)
+		}
+	}
+	if _, err := Example("yaml"); err == nil {
+		t.Error("unsupported format should fail")
+	}
+}
+
+func TestExampleINIRootKeysAfterSectionedOptions(t *testing.T) {
+	previous := options
+	options = []option{
+		{"access_log::enabled", "false", "Access log."},
+		{"port", "10416", "Listening port."},
+	}
+	t.Cleanup(func() { options = previous })
+	ini, err := Example("ini")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootAt := strings.Index(ini, "\nport = 10416\n")
+	sectionAt := strings.Index(ini, "\n[access_log]\n")
+	if rootAt < 0 || sectionAt < 0 || rootAt >= sectionAt {
+		t.Fatalf("root option emitted inside [access_log]:\n%s", ini)
+	}
+}

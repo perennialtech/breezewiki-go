@@ -358,6 +358,14 @@ func TestPageEscapesMetadata(t *testing.T) {
 	requireAbsent(t, got, `<title><script>`)
 }
 
+func TestSortableTablesScriptIsBundled(t *testing.T) {
+	out, err := Page(`<table class="wikitable sortable"><tr><th>Name</th></tr><tr><td>Example</td></tr></table>`, Options{Wiki: "test", Title: "Tables"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `src="/static/sortable.js"`, `"sortable":"/static/sortable.js"`, `class="wikitable sortable"`)
+}
+
 func TestArticleHistoryLink(t *testing.T) {
 	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article", SourceURL: "https://example.fandom.com/wiki/Article"})
 	if err != nil {

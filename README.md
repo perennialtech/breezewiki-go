@@ -21,7 +21,11 @@ go build -o breezewiki ./cmd/breezewiki
 ```
 
 The complete list of supported configuration keys, descriptions, and
-defaults is available from the binary's `-help-config` option.
+defaults is available from the binary's `-help-config` option. The generated
+[`config.example.ini`](config.example.ini) and [`.env.example`](.env.example)
+include every setting with its default and description. Run
+`make generate-config-examples` after changing a setting; `make ci` checks
+that both files are current.
 
 The default port is `10416`. A `config.ini` file is optional. The server embeds
 its CSS, JavaScript, fonts, and artwork; it does not need the source checkout or
@@ -29,20 +33,7 @@ a `static/` directory after installation. To use a custom `static/` directory,
 pass `-root /path/to/root` (where that root contains `static/`). Use
 `-config /path/to/config.ini` for a different configuration file.
 
-Example `config.ini`:
-
-```ini
-application_name = BreezeWiki
-bind_host = 127.0.0.1
-port = 10416
-canonical_origin = http://localhost:10416
-
-[feature_jsonp]
-enabled = true
-
-[access_log]
-enabled = true
-```
+Copy `config.example.ini` to `config.ini` to customise file-based settings.
 
 `BW_` environment variables override file settings. Nested settings use `::`,
 for example `env 'BW_FEATURE_JSONP::ENABLED=false' ./breezewiki` to load pages
@@ -74,8 +65,10 @@ The container runs as a non-root user, listens on all interfaces at port
 `10416`, and uses embedded assets. Both examples run with a read-only root
 filesystem, dropped Linux capabilities, and no privilege escalation. The
 container supports the same `BW_` environment variables as the native server.
-For example, pass `-e BW_ACCESS_LOG::ENABLED=true` to `docker run` to
-log requests.
+Copy `.env.example` to `.env` and pass `--env-file .env` to `docker run` to
+customise them. Nested names use `::`, which shells cannot source as variables.
+Alternatively, pass `-e BW_ACCESS_LOG::ENABLED=true` to `docker run` to log
+requests.
 
 ## Other tools and development
 

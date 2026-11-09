@@ -180,6 +180,7 @@ func Page(content string, opts Options) (string, error) {
 		"jsonp":              staticURL("jsonp.js"),
 		"preact":             staticURL("preact.js"),
 		"search-suggestions": staticURL("search-suggestions.js"),
+		"sortable":           staticURL("sortable.js"),
 		"tabs":               staticURL("tabs.js"),
 	}})
 	if err != nil {
@@ -202,7 +203,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString("</script><script type=\"importmap\">")
 	b.Write(imports)
 	b.WriteString("</script>")
-	scripts := []string{"countdown.js", "tabs.js", "comments.js"}
+	scripts := []string{"countdown.js", "tabs.js", "sortable.js", "comments.js"}
 	if !opts.DisableSearchSuggestions {
 		scripts = append([]string{"search-suggestions.js"}, scripts...)
 	}
