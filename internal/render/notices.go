@@ -210,11 +210,13 @@ func externalWikiNotice(opts Options) string {
 		} else {
 			b.WriteString(`<aside class="niwa__notice">`)
 		}
-		b.WriteString(`<h1 class="niwa__header">`)
+		b.WriteString(`<div class="niwa__summary"><strong class="niwa__header">`)
 		b.WriteString(html.EscapeString(info.Name))
-		b.WriteString(" has its own website separate from Fandom.</h1>")
+		b.WriteString(" has its own website separate from Fandom.</strong>")
 		noticeLink(&b, goURL, "Read "+title+" on "+info.Name+" →", "niwa__go")
-		b.WriteString(`<div class="niwa__cols"><div class="niwa__left">`)
+		b.WriteString(`<a rel="nofollow" class="niwa__got-it" href="`)
+		b.WriteString(html.EscapeString(noticeDismissURL(opts)))
+		b.WriteString(`">OK, got it</a></div><details class="niwa__details"><summary>More information</summary><div class="niwa__cols"><div class="niwa__left">`)
 		b.WriteString(info.Description)
 		b.WriteString(group.description)
 		b.WriteString("<p>This wiki's core community has largely migrated away from Fandom. You should ")
@@ -229,17 +231,14 @@ func externalWikiNotice(opts Options) string {
 		if len(group.links) > 0 {
 			b.WriteString(" / ")
 		}
-		b.WriteString("This notice is from BreezeWiki / ")
-		b.WriteString(`<a rel="nofollow" class="niwa__got-it" href="`)
-		b.WriteString(html.EscapeString(noticeDismissURL(opts)))
-		b.WriteString(`">OK, got it</a>`)
+		b.WriteString("This notice is from BreezeWiki")
 		b.WriteString("</p></div>")
 		if info.Logo != nil && *info.Logo != "" {
 			b.WriteString(`<div class="niwa__right"><img class="niwa__logo" src="`)
 			b.WriteString(html.EscapeString(*info.Logo))
 			b.WriteString(`"></div>`)
 		}
-		b.WriteString("</div></aside>")
+		b.WriteString("</div></details></aside>")
 	}
 	return b.String()
 }

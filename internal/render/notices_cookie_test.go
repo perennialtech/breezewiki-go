@@ -36,3 +36,16 @@ func TestWikiNoticeDismissalAndThemePreserveCookies(t *testing.T) {
 		t.Fatalf("theme lost notices: %q", got)
 	}
 }
+
+func TestIndependentWikiNoticeStartsCompact(t *testing.T) {
+	opts := Options{Wiki: "minecraft", Title: "Bricks"}
+	got := externalWikiNotice(opts)
+	for _, want := range []string{`class="niwa__summary"`, `<details class="niwa__details">`, `<summary>More information</summary>`, `class="niwa__go"`, `class="niwa__got-it"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(got, `<details class="niwa__details" open`) {
+		t.Fatal("notice details should start collapsed")
+	}
+}
