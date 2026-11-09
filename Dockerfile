@@ -16,6 +16,7 @@ RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
 COPY --from=build /out/breezewiki-go /usr/local/bin/breezewiki-go
+USER 65532:65532
 ENV BW_BIND_HOST=0.0.0.0
 EXPOSE 10416
 ENTRYPOINT ["/usr/local/bin/breezewiki-go"]
