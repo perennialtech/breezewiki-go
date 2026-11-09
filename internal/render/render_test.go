@@ -292,14 +292,22 @@ func TestPageDefaultsAndNotices(t *testing.T) {
 }
 
 func TestIndependentWikiDataset(t *testing.T) {
-	if len(independentWikis) != 122 {
-		t.Fatalf("expected 122 upstream wiki aliases, got %d", len(independentWikis))
+	if len(independentWikis) != 123 {
+		t.Fatalf("expected 123 wiki aliases, got %d", len(independentWikis))
 	}
-	for _, wiki := range []string{"pokemon", "terraria", "runescape", "zelda", "undertale", "deltarune", "rain-web-comic", "teamfortress"} {
+	for _, wiki := range []string{"pokemon", "terraria", "runescape", "zelda", "undertale", "deltarune", "rain-web-comic", "teamfortress", "warframe"} {
 		if _, ok := independentWikis[wiki]; !ok {
 			t.Fatalf("missing upstream independent wiki %q", wiki)
 		}
 	}
+}
+
+func TestWarframeMigrationNotice(t *testing.T) {
+	got, err := Page("<p>Content</p>", Options{Wiki: "warframe", Title: "Excalibur"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, "Official WARFRAME Wiki", "wiki.warframe.com/w/Special:Search?search=Excalibur", "forums.warframe.com/topic/1439599")
 }
 
 func TestPageEscapesMetadata(t *testing.T) {

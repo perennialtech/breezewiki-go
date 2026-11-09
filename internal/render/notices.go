@@ -85,6 +85,9 @@ var independentWikiGroups = map[string]wikiGroup{
 		links:       [][2]string{{"Reasons and community vote", "https://undertale.fandom.com/f/p/4400000000000078624"}, {"Moving announcement", "https://undertale.fandom.com/f/p/4400000000000078715"}, {"About the new wiki", "https://undertale.wiki/w/Undertale_Wiki:About"}},
 		description: `<p>Following a community vote on March 26, 2025, most of the wiki's editors have moved to a new host. As a result, this wiki's content may be outdated or incorrect.</p><p>The Undertale &amp; Deltarune Wikis voted to move off their previous host, Fandom. Their reasons included bad user experience, lack of editorial freedom, and disagreement with the sporadic AI Quick Answers that were visible to logged off readers on August 19, 2023. Both wikis moved, and are now independently hosted by the wikis' staff.</p>`,
 	},
+	"Warframe": {
+		links: [][2]string{{"Official migration announcement", "https://forums.warframe.com/topic/1439599-wiki-updates-bug-reporting-discord/"}},
+	},
 	"empty": {
 		links: [][2]string{{"This wiki doesn't have a description yet. Add one?", "https://docs.breezewiki.com/Reporting_Bugs.html"}},
 	},
