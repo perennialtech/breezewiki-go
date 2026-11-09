@@ -314,3 +314,11 @@ func TestPageEscapesMetadata(t *testing.T) {
 	requireContains(t, got, `&lt;script&gt;alert(1)&lt;/script&gt;`, `App &amp; &#34;friends&#34;`, `<div>raw</div>`)
 	requireAbsent(t, got, `<title><script>`)
 }
+
+func TestWikiHomeNavigation(t *testing.T) {
+	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `<a href="/example/">Wiki home</a>`)
+}
