@@ -278,6 +278,9 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 		}
 		content = rewritten
 	}
+	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
+		content += commentsPlaceholder(wiki, title)
+	}
 	s.layout(w, r, wiki, title, source, content, head, info)
 }
 func asList(v any) []any { a, _ := v.([]any); return a }

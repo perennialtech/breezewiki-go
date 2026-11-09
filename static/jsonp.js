@@ -92,7 +92,8 @@ async function cont() {
 		// page -> #content
 		const imported = document.importNode(xhr.responseXML.getElementById("content"), true)
 		document.getElementById("content").replaceWith(imported)
-		initSortableTables()
+initSortableTables()
+        document.dispatchEvent(new Event("breezewiki:content-loaded"))
 		// page theme
 		// Try to make it a bit more accurate. Normally this is done server-side by sending a `theme=x` cookie with the parse request. But that's not possible in jsonp mode, and there's no equivalent URL query string to set the theme.
 		// Helps on Minecraft wiki. Might not be complete on some wikis.
