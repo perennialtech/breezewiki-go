@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -23,11 +24,21 @@ import (
 var settingsRE = regexp.MustCompile(`^#s\(user-cookies\^\s+(default|light|dark)\s+\(([^)]*)\)\)$`)
 var ipDigits = regexp.MustCompile(`[0-9]+`)
 
+// localReturnPath prevents settings changes from redirecting visitors to
+// attacker-controlled domains.
+func localReturnPath(path string) bool {
+	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") || strings.ContainsAny(path, "\r\n\\") {
+		return false
+	}
+	u, err := url.ParseRequestURI(path)
+	return err == nil && u.Host == "" && !u.IsAbs()
+}
+
 func (s *Server) setUserSettings(w http.ResponseWriter, r *http.Request) {
 	next := r.URL.Query().Get("next_location")
 	setting := r.URL.Query().Get("new_settings")
 	m := settingsRE.FindStringSubmatch(setting)
-	if next == "" || m == nil {
+	if m == nil || !localReturnPath(next) {
 		s.internalError(w, fmt.Errorf("invalid user settings %q", setting))
 		return
 	}
