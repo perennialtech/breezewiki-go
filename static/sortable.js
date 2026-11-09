@@ -11,7 +11,17 @@ function columnValue(row, column) {
 	return ""
 }
 
-function compareValues(a, b) {
+function compareValues(a, b, sortType) {
+    if (sortType === "date") {
+        const first = Date.parse(a), second = Date.parse(b)
+        if (!Number.isNaN(first) && !Number.isNaN(second)) return first - second
+    }
+    if (sortType === "currency") {
+        const first = a.replace(/[^0-9.,+-]/g, ""), second = b.replace(/[^0-9.,+-]/g, "")
+        if (numeric.test(first) && numeric.test(second)) {
+            return Number(first.replaceAll(",", "")) - Number(second.replaceAll(",", ""))
+        }
+    }
 	if ((numeric.test(a) && numeric.test(b)) || (percent.test(a) && percent.test(b))) {
 		return parseFloat(a.replaceAll(",", "")) - parseFloat(b.replaceAll(",", ""))
 	}
@@ -65,11 +75,12 @@ export function initSortableTables() {
                             for (const item of sortable[i].cells) {
                                 end = Math.min(sortable.length, Math.max(end, item.rowSpan === 0 ? sortable.length : i + item.rowSpan))
                             }
+                            while (end < sortable.length && sortable[end].classList.contains("expand-child")) end++
                         }
                         groups.push(sortable.slice(start, end))
                         start = end
                     }
-                    groups.sort((a,b) => compareValues(columnValue(a[0],index),columnValue(b[0],index)) * (ascending ? 1 : -1))
+                    groups.sort((a,b) => compareValues(columnValue(a[0],index),columnValue(b[0],index),cell.dataset.sortType) * (ascending ? 1 : -1))
                     for (const row of [...(body === firstBody && !table.tHead ? headers : []), ...top, ...groups.flat(), ...bottom]) body.appendChild(row)
                 }
                 for (const header of leafHeaders) header.cell.setAttribute("aria-sort", "none")
