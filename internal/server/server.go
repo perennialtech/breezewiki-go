@@ -32,11 +32,12 @@ var captchaVerifyPath = regexp.MustCompile(`^/captcha/verify/([0-9]+)/([0-9]+)/(
 var redirectMessage = regexp.MustCompile(`(?is)<[^>]*class=["'][^"']*\bredirectMsg\b[^"']*["'][^>]*>.*?<a\b[^>]*href=["']([^"']+)["']`)
 
 type Server struct {
-	Config      *config.Config
-	Fandom      *fandom.Client
-	StaticDir   string
-	ArchiveDir  string
-	SolrBaseURL string
+	Config       *config.Config
+	Fandom       *fandom.Client
+	StaticDir    string
+	ArchiveDir   string
+	SolrBaseURL  string
+	genericCache genericCache
 	// DB is an optional database/sql-compatible connection to storage/archiver.db.
 	// When present, offline routes use the original wiki and page redirect tables.
 	DB *sql.DB
@@ -248,7 +249,8 @@ func (s *Server) pageHTML(r *http.Request, wiki, title, source, content, head st
 	out, err := render.Page(content, render.Options{Wiki: wiki, Title: title, SourceURL: source,
 		CanonicalOrigin: origin, ApplicationName: s.Config.Get("application_name"),
 		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path,
-		CurrentURL: r.URL.RequestURI(), Notices: notices(r)})
+		CurrentURL: r.URL.RequestURI(), Notices: notices(r),
+		ExternalNoticeHTML: s.genericNotice(r.Context(), wiki, title)})
 	if err != nil {
 		return "", err
 	}

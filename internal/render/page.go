@@ -18,6 +18,7 @@ type Options struct {
 	SiteInfo                                                                                  map[string]any
 	Notices                                                                                   []string
 	CurrentURL                                                                                string
+	ExternalNoticeHTML                                                                        string
 }
 
 var (
@@ -175,7 +176,11 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(`</head><body class="`)
 	b.WriteString(escaped(bodyClass))
 	b.WriteString(` bw-tabs-nojs"><div class="main-container"><div class="fandom-community-header__background tileHorizontally header"></div><div class="page"><main class="page__main">`)
-	b.WriteString(externalWikiNotice(opts))
+	if notice := externalWikiNotice(opts); notice != "" {
+		b.WriteString(notice)
+	} else {
+		b.WriteString(opts.ExternalNoticeHTML)
+	}
 	b.WriteString(`<div class="custom-top"><h1 class="page-title">`)
 	titleBreadcrumbs(&b, opts.Title)
 	b.WriteString(`</h1><nav class="sitesearch"><form action="/`)
