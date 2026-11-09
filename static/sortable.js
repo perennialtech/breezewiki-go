@@ -13,8 +13,12 @@ function columnValue(row, column) {
 
 function compareValues(a, b, sortType) {
     if (sortType === "date") {
-        const first = Date.parse(a), second = Date.parse(b)
+        const monthYear = /^[A-Za-z]+ \d{4}$/
+        const first = Date.parse(monthYear.test(a) ? `1 ${a}` : a)
+        const second = Date.parse(monthYear.test(b) ? `1 ${b}` : b)
         if (!Number.isNaN(first) && !Number.isNaN(second)) return first - second
+        if (!Number.isNaN(first)) return -1
+        if (!Number.isNaN(second)) return 1
     }
     if (sortType === "currency") {
         const first = a.replace(/[^0-9.,+-]/g, ""), second = b.replace(/[^0-9.,+-]/g, "")
