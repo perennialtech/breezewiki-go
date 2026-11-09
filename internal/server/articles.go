@@ -275,7 +275,7 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, page,
 	if origin == "" {
 		origin = r.Header.Get("Referer")
 	}
-	if origin == "" || !strings.HasPrefix(origin, s.Config.Get("canonical_origin")) {
+	if !s.allowedPOSTOrigin(r, origin) {
 		s.postError(w, "Origin/Referer header failed validation - cross-origin requests are not allowed here")
 		return
 	}

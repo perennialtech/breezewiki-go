@@ -158,6 +158,16 @@ func TestJSONPAndPost(t *testing.T) {
 	if wrong.Code != 400 {
 		t.Fatalf("cross-origin allowed %d", wrong.Code)
 	}
+	for _, forged := range []string{"https://breezewiki.example.evil", "https://breezewiki.example@evil.test", "http://breezewiki.example", "null"} {
+		wrong := response(s, "POST", "/test/wiki/Example", bytes.NewReader(body), map[string]string{"Origin": forged})
+		if wrong.Code != 400 {
+			t.Fatalf("cross-origin %q allowed: %d", forged, wrong.Code)
+		}
+	}
+	canonical := response(s, "POST", "/test/wiki/Example", bytes.NewReader(body), map[string]string{"Origin": "https://breezewiki.example"})
+	if canonical.Code != 200 {
+		t.Fatalf("canonical POST denied: %d", canonical.Code)
+	}
 }
 func TestStatusStaticSettingsSubdomain(t *testing.T) {
 	s, _ := mockServer(t, nil, upstreamAPI)
