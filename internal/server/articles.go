@@ -192,6 +192,10 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 		}
 		u := fandom.String(img, "user")
 		b.WriteString("<p>Uploaded by <a href=\"" + quote(linkTo(wiki, "User:"+u)) + "\">" + quote(u) + "</a>.</p>")
+		if timestamp := fandom.String(img, "timestamp"); timestamp != "" {
+			b.WriteString("<p>Latest upload: <time datetime=\"" + quote(timestamp) + "\">" + quote(strings.SplitN(timestamp, "T", 2)[0]) + "</time>.</p>")
+		}
+
 		if len(usage) > 0 {
 			b.WriteString("<p>This file is used in ")
 			for i, v := range usage {
