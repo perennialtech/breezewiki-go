@@ -1,4 +1,4 @@
-import {h, htm, render, signal, computed, effect, useSignalEffect, useLayoutEffect} from "preact"
+import {h, htm, render, signal, computed, effect, useSignalEffect, useLayoutEffect, batch} from "preact"
 const html = htm.bind(h)
 const classNames = classArr => classArr.filter(el => el).join(" ")
 
@@ -15,7 +15,7 @@ const st = signal("ready")
 const suggestions = signal([])
 const enterWasLastKey = signal(false)
 const selectedIndex = signal(-1)
-let restoreResultsFocus = false
+let focusAfterUpdate = null
 
 // processing functions
 
@@ -67,11 +67,12 @@ function Suggestion({index, ...hit}) {
 
 function DefaultSearch({q}) {
     useLayoutEffect(() => {
-        if (!restoreResultsFocus) return
-        restoreResultsFocus = false
-        eSuggestions.querySelector('button[type="submit"]')?.focus()
+        if (focusAfterUpdate === null) return
+        const index = focusAfterUpdate
+        focusAfterUpdate = null
+        eSuggestions.querySelectorAll(".bw-ss__button")[index]?.focus()
     })
-	if (!q) return ""
+    if (!q) return ""
 	return html`<li class="bw-ss__item"><button type="submit" onFocus=${() => selectedIndex.value = suggestions.value.length} class=${classNames(["bw-ss__button", selectedIndex.value === suggestions.value.length && "bw-ss__button--selected"])}>Results for "${q}"</button></li>`
 }
 
@@ -92,12 +93,19 @@ effect(() => {
 	if (st.peek() === "accepted") return // lock results from changing during navigation
 	st.value = "loading"
 	fetchSuggestions(query.value).then(res => {
-        const resultsFocused = eSuggestions.querySelector("button:focus") !== null
-        if (resultsFocused) {
-            restoreResultsFocus = true
-            selectedIndex.value = res.length
+        const focused = eSuggestions.querySelector(".bw-ss__button:focus")
+        if (focused) {
+            const href = focused.getAttribute("href")
+            let index = href === null ? res.length : res.findIndex(hit => suggestionURL(hit) === href)
+            if (index < 0) index = Math.min(Math.max(selectedIndex.peek(), 0), res.length)
+            focusAfterUpdate = index
+            batch(() => {
+                suggestions.value = res
+                selectedIndex.value = index
+            })
+        } else {
+            suggestions.value = res
         }
-        suggestions.value = res
 		if (hitsDone.size === hitsPromise.size) {
 			st.value = "ready"
 		}
