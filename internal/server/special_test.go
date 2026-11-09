@@ -86,3 +86,24 @@ func TestAllPagesJSONP(t *testing.T) {
 		t.Fatalf("JSONP POST allpages %d: %s", result.Code, result.Body.String())
 	}
 }
+
+func TestPercentInSpecialPageTitles(t *testing.T) {
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("list") {
+		case "random":
+			_, _ = io.WriteString(w, `{"query":{"random":[{"title":"100%"}]}}`)
+		case "allpages":
+			_, _ = io.WriteString(w, `{"query":{"allpages":[{"title":"100%"}]}}`)
+		default:
+			upstreamAPI(w, r)
+		}
+	})
+	random := response(s, "GET", "/test/wiki/Special:Random", nil, nil)
+	if random.Code != 302 || random.Header().Get("Location") != "/test/wiki/100%25" {
+		t.Errorf("random title %% redirect: %d %q", random.Code, random.Header().Get("Location"))
+	}
+	all := response(s, "GET", "/test/wiki/Special:AllPages", nil, nil)
+	if all.Code != 200 || !strings.Contains(all.Body.String(), `href="/test/wiki/100%25"`) {
+		t.Errorf("allpages title %% link: %d", all.Code)
+	}
+}

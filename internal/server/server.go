@@ -339,7 +339,7 @@ func linkTo(wiki, title string) string {
 func pathEscape(s string) string {
 	var b strings.Builder
 	for _, c := range []byte(s) {
-		if c <= 0x1f || c > 0x7e || strings.ContainsRune(";?`{} \"#<>", rune(c)) {
+		if c <= 0x1f || c > 0x7e || strings.ContainsRune("%;?`{} \"#<>", rune(c)) {
 			fmt.Fprintf(&b, "%%%02X", c)
 		} else {
 			b.WriteByte(c)
