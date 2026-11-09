@@ -159,11 +159,11 @@ func (s *Server) comments(w http.ResponseWriter, r *http.Request, wiki string) {
 		http.Error(w, "Article title required", http.StatusBadRequest)
 		return
 	}
-	page := 1
+	page := 0
 	if raw := r.URL.Query().Get("page"); raw != "" {
 		var err error
 		page, err = strconv.Atoi(raw)
-		if err != nil || page < 1 {
+		if err != nil || page < 0 {
 			http.Error(w, "Invalid comments page", http.StatusBadRequest)
 			return
 		}
@@ -211,9 +211,9 @@ func (s *Server) comments(w http.ResponseWriter, r *http.Request, wiki string) {
 	}
 	var links map[string]string
 	_ = json.Unmarshal(data.Links, &links)
-	if page > 1 || links["next"] != "" {
+	if page > 0 || links["next"] != "" {
 		b.WriteString(`<nav class="bw-comments__pages" aria-label="Comment pages">`)
-		if page > 1 {
+		if page > 0 {
 			fmt.Fprintf(&b, `<button type="button" data-comments-page="%d">Newer comments</button>`, page-1)
 		}
 		if links["next"] != "" {

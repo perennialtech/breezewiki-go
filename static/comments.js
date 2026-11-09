@@ -20,7 +20,7 @@ function initComments() {
         if (!button || !section.contains(button)) return
         show(button.dataset.commentsPage)
     })
-    show(new URLSearchParams(location.search).get("comments_page") || "1")
+    show(new URLSearchParams(location.search).get("comments_page") || "0")
 }
 
 initComments()

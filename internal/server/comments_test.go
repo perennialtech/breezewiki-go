@@ -38,7 +38,7 @@ func TestPublicArticleCommentsAndPagination(t *testing.T) {
 		}
 		calls++
 		q := r.URL.Query()
-		if q.Get("controller") != "ArticleCommentsController" || q.Get("method") != "getComments" || q.Get("title") != "Page & Title" || q.Get("namespace") != "0" || q.Get("page") != "1" {
+		if q.Get("controller") != "ArticleCommentsController" || q.Get("method") != "getComments" || q.Get("title") != "Page & Title" || q.Get("namespace") != "0" || q.Get("page") != "0" {
 			t.Errorf("comment request: %s", r.URL)
 		}
 		_ = json.NewEncoder(w).Encode(commentFixture())
@@ -47,7 +47,7 @@ func TestPublicArticleCommentsAndPagination(t *testing.T) {
 	if got.Code != 200 {
 		t.Fatalf("HTTP %d: %s", got.Code, got.Body.String())
 	}
-	for _, needle := range []string{"21 comments", "Alice", "Bob", "Reply with link", "<strong>Hello &lt;script&gt;alert(1)&lt;/script&gt;</strong>", `data-comments-page="2"`} {
+	for _, needle := range []string{"21 comments", "Alice", "Bob", "Reply with link", "<strong>Hello &lt;script&gt;alert(1)&lt;/script&gt;</strong>", `data-comments-page="1"`} {
 		if !strings.Contains(got.Body.String(), needle) {
 			t.Errorf("missing %q", needle)
 		}
@@ -120,5 +120,23 @@ func TestCommentImageUsesStrictProxyAndCodeBlock(t *testing.T) {
 	}
 	if strings.Contains(got.Body.String(), `src="https://static.wikia.nocookie.net`) {
 		t.Fatal("image bypassed strict proxy")
+	}
+}
+
+func TestCommentsUseZeroBasedPages(t *testing.T) {
+	var requested string
+	s, _ := mockServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+		requested = r.URL.Query().Get("page")
+		page := commentFixture()
+		page["links"] = map[string]any{"prev": "https://example.invalid/page=0"}
+		_ = json.NewEncoder(w).Encode(page)
+	})
+	got := response(s, "GET", "/test/comments?title=Page&page=0", nil, nil)
+	if got.Code != 200 || requested != "0" {
+		t.Fatalf("page zero %d %q", got.Code, requested)
+	}
+	older := response(s, "GET", "/test/comments?title=Page&page=1", nil, nil)
+	if older.Code != 200 || requested != "1" || !strings.Contains(older.Body.String(), `data-comments-page="0"`) {
+		t.Fatalf("newer comments link missing at page one: %d %q", older.Code, requested)
 	}
 }
