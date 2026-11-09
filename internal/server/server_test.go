@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -166,6 +167,28 @@ func TestJSONPAndPost(t *testing.T) {
 		t.Fatalf("canonical POST denied: %d", canonical.Code)
 	}
 }
+
+func TestKnownFandomWikiAliases(t *testing.T) {
+	s, _ := mockServer(t, nil, upstreamAPI)
+	for _, tc := range []struct{ path, destination string }{
+		{"/bfdi/wiki/Battle_for_Dream_Island", "/battlefordreamisland/wiki/Battle_for_Dream_Island"},
+		{"/mspa/wiki/Homestuck?oldid=99", "/mspaintadventures/wiki/Homestuck?oldid=99"},
+		{"/bfdi/wiki/Some%20Page?redirect=no", "/battlefordreamisland/wiki/Some%20Page?redirect=no"},
+		{"/b%66di/wiki/Page?oldid=99", "/battlefordreamisland/wiki/Page?oldid=99"},
+		{"/bfdi%2Fwiki%2FPage?oldid=99", "/battlefordreamisland%2Fwiki%2FPage?oldid=99"},
+		{"/mspa", "/mspaintadventures"},
+	} {
+		got := response(s, "GET", tc.path, nil, nil)
+		if got.Code != 302 || got.Header().Get("Location") != tc.destination {
+			t.Errorf("%s: status %d, location %q; want %q", tc.path, got.Code, got.Header().Get("Location"), tc.destination)
+		}
+	}
+	other := response(s, "GET", "/test/wiki/Page", nil, nil)
+	if other.Code != 200 {
+		t.Errorf("unrelated wiki returned %d", other.Code)
+	}
+}
+
 func TestStatusStaticSettingsSubdomain(t *testing.T) {
 	s, _ := mockServer(t, nil, upstreamAPI)
 	s.Config = config.New(map[string]string{"canonical_origin": "https://mirror.example"})
@@ -199,5 +222,51 @@ func TestStrictProxyPage(t *testing.T) {
 	if got.Code != 200 || !strings.Contains(got.Body.String(), `/proxy?dest=https%3A%2F%2Ftest.fandom.com`) ||
 		!strings.Contains(got.Body.String(), `BWData.strict_proxy = true`) {
 		t.Fatalf("strict proxy page %d: %s", got.Code, got.Body.String())
+	}
+}
+
+func TestFileLatestUploadDate(t *testing.T) {
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("prop") != "imageinfo|fileusage" {
+			upstreamAPI(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, `{"query":{"pages":[{"imageinfo":[{"mediatype":"BITMAP","url":"https://static.wikia.nocookie.net/warframe/images/b/b8/File.png","user":"Shrddr","timestamp":"2016-12-13T10:30:04Z"}]}]}}`)
+	})
+	got := response(s, "GET", "/test/wiki/File:File.png", nil, nil)
+	if got.Code != 200 || !strings.Contains(got.Body.String(), `<time datetime="2016-12-13T10:30:04Z">2016-12-13</time>`) {
+		t.Fatalf("file upload date missing: %d; present %v", got.Code, strings.Contains(got.Body.String(), "2016-12-13"))
+	}
+}
+
+func TestSearchRequestsMoreThanTenResults(t *testing.T) {
+	var requestedLimit string
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("meta") == "siteinfo" {
+			upstreamAPI(w, r)
+			return
+		}
+		requestedLimit = r.URL.Query().Get("srlimit")
+		count := 10
+		if requestedLimit == "50" {
+			count = 16
+		}
+		results := make([]map[string]any, count)
+		for i := range results {
+			results[i] = map[string]any{"title": fmt.Sprintf("Result %d", i+1), "timestamp": "2026-11-09T00:00:00Z", "wordcount": 1, "size": 100}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"query": map[string]any{"search": results}})
+	})
+	got := response(s, "GET", "/test/search?q=example", nil, nil)
+	if got.Code != 200 || requestedLimit != "50" || !strings.Contains(got.Body.String(), "Result 16") || !strings.Contains(got.Body.String(), "16 results found") {
+		t.Fatalf("limit %q, status %d: %s", requestedLimit, got.Code, got.Body.String())
+	}
+}
+
+func TestSearchJSONPRequestsMoreThanTenResults(t *testing.T) {
+	s, _ := mockServer(t, nil, upstreamAPI)
+	got := response(s, "GET", "/test/search?q=example", nil, nil)
+	if got.Code != 200 || !strings.Contains(got.Body.String(), "srlimit=50") {
+		t.Fatalf("JSONP search limit missing: %d %s", got.Code, got.Body.String())
 	}
 }

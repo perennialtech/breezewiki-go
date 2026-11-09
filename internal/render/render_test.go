@@ -81,13 +81,35 @@ func TestLanguageWikiLinks(t *testing.T) {
 	input := `<a href="/es/wiki/Local">Local</a><a href="/wiki/Implicit">Implicit</a>` +
 		`<a href="https://mlp.fandom.com/es/wiki/One">One</a>` +
 		`<a href="https://other.fandom.com/fr/wiki/Deux">Deux</a>` +
-		`<a href="/fr/wiki/Another">Another language</a>`
+		`<a href="/fr/wiki/Another">Another language</a>` +
+		`<a href="/mlp/es/wiki/Already">Already local</a>` +
+		`<a href="/wiki/wiki/Subpage">Nested wiki title</a>`
 	got, err := Rewrite(input, "mlp", "es")
 	if err != nil {
 		t.Fatal(err)
 	}
 	requireContains(t, got, `href="/mlp/es/wiki/Local"`, `href="/mlp/es/wiki/Implicit"`,
-		`href="/mlp/es/wiki/One"`, `href="/other/fr/wiki/Deux"`, `href="/mlp/fr/wiki/Another"`)
+		`href="/mlp/es/wiki/One"`, `href="/other/fr/wiki/Deux"`, `href="/mlp/fr/wiki/Another"`, `href="/mlp/es/wiki/Already"`, `href="/mlp/es/wiki/wiki/Subpage"`)
+}
+
+func TestCommunityInterwikiLinks(t *testing.T) {
+	got := mustRewrite(t, `<div>
+		<a href="https://community.fandom.com/wiki/w:c:zelda:Link">Article</a>
+		<a href="https://community.fandom.com/wiki/w:c:battlefordreamisland:Battle_for_Dream_Island?oldid=42#Plot">Section</a>
+		<a href="https://community.fandom.com/wiki/w:c:mlp%3ACherry_Berry">Wikidata article</a>
+		<a href="https://community.fandom.com/wiki/w:c:naruto-fandom%3AMangeky%C5%8D_Sharingan">Encoded title</a>
+		<a href="https://community.fandom.com/wiki/w:c:battlefordreamisland">Wiki</a>
+		<a href="https://community.fandom.com/wiki/Main_Page">Community</a>
+		<a href="https://example.org/wiki/w:c:zelda:Link">External</a>
+	</div>`)
+	requireContains(t, got,
+		`href="/zelda/wiki/Link"`,
+		`href="/battlefordreamisland/wiki/Battle_for_Dream_Island?oldid=42#Plot"`,
+		`href="/mlp/wiki/Cherry_Berry"`,
+		`href="/naruto-fandom/wiki/Mangeky%C5%8D_Sharingan"`,
+		`href="/battlefordreamisland/wiki/"`,
+		`href="/community/wiki/Main_Page"`,
+		`href="https://example.org/wiki/w:c:zelda:Link"`)
 }
 
 func TestStrictProxyUpstreamExamples(t *testing.T) {
@@ -305,14 +327,22 @@ func TestPageDefaultsAndNotices(t *testing.T) {
 }
 
 func TestIndependentWikiDataset(t *testing.T) {
-	if len(independentWikis) != 122 {
-		t.Fatalf("expected 122 upstream wiki aliases, got %d", len(independentWikis))
+	if len(independentWikis) != 123 {
+		t.Fatalf("expected 123 wiki aliases, got %d", len(independentWikis))
 	}
-	for _, wiki := range []string{"pokemon", "terraria", "runescape", "zelda", "undertale", "deltarune", "rain-web-comic", "teamfortress"} {
+	for _, wiki := range []string{"pokemon", "terraria", "runescape", "zelda", "undertale", "deltarune", "rain-web-comic", "teamfortress", "warframe"} {
 		if _, ok := independentWikis[wiki]; !ok {
 			t.Fatalf("missing upstream independent wiki %q", wiki)
 		}
 	}
+}
+
+func TestWarframeMigrationNotice(t *testing.T) {
+	got, err := Page("<p>Content</p>", Options{Wiki: "warframe", Title: "Excalibur"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, "Official WARFRAME Wiki", "wiki.warframe.com/w/Special:Search?search=Excalibur", "forums.warframe.com/topic/1439599")
 }
 
 func TestPageEscapesMetadata(t *testing.T) {
@@ -326,4 +356,33 @@ func TestPageEscapesMetadata(t *testing.T) {
 	}
 	requireContains(t, got, `&lt;script&gt;alert(1)&lt;/script&gt;`, `App &amp; &#34;friends&#34;`, `<div>raw</div>`)
 	requireAbsent(t, got, `<title><script>`)
+}
+
+func TestArticleHistoryLink(t *testing.T) {
+	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article", SourceURL: "https://example.fandom.com/wiki/Article"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `href="https://example.fandom.com/wiki/Article?action=history">History</a>`)
+	search, err := Page("Search", Options{Wiki: "example", Title: "Search", Path: "/example/search", SourceURL: "https://example.fandom.com/wiki/Special:Search"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireAbsent(t, search, `>History</a>`)
+}
+
+func TestHistoryURLReservedArticleTitle(t *testing.T) {
+	got, err := Page("<p>Test</p>", Options{Wiki: "spongebob", Title: "Are You Happy Now?", Path: "/spongebob/wiki/Are_You_Happy_Now?", SourceURL: "https://spongebob.fandom.com/wiki/Are_You_Happy_Now?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, `href="https://spongebob.fandom.com/wiki/Are_You_Happy_Now%3F?action=history"`)
+}
+
+func TestWikiHomeNavigation(t *testing.T) {
+	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `<a href="/example/">Wiki home</a>`)
 }

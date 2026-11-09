@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -129,5 +130,50 @@ func TestLocalizedCategoryAndFileNamespaces(t *testing.T) {
 	file := response(s, "GET", "/mlp/es/wiki/Archivo:File.png", nil, nil)
 	if file.Code != 200 || !strings.Contains(file.Body.String(), "Download original file") {
 		t.Fatalf("localized file omitted metadata: %d", file.Code)
+	}
+}
+
+func TestLocalizedJSONPUsesBrowserSiteInfoForNamespaces(t *testing.T) {
+	calls := 0
+	s, _ := mockServer(t, nil, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(http.StatusServiceUnavailable) })
+	for _, route := range []string{"/mlp/es/wiki/Archivo:Example.png", "/mlp/es/wiki/Categor%C3%ADa:Alicornio"} {
+		got := response(s, "GET", route, nil, nil)
+		if got.Code != 200 || calls != 0 {
+			t.Fatalf("GET %s: HTTP %d, server-side API calls %d", route, got.Code, calls)
+		}
+		if !strings.Contains(got.Body.String(), "localizedExtraEndpoints") {
+			t.Errorf("missing browser-side namespace lookup: %s", route)
+		}
+	}
+	siteinfo := map[string]any{"query": map[string]any{"namespaces": map[string]any{
+		"6":  map[string]any{"id": 6, "name": "Archivo", "canonical": "File"},
+		"14": map[string]any{"id": 14, "name": "Categoría", "canonical": "Category"},
+	}}}
+	for _, tc := range []struct {
+		title, extra string
+		payload      map[string]any
+	}{
+		{"Archivo:Example.png", "Download original file", map[string]any{"imageinfo": map[string]any{"query": map[string]any{"pages": []any{map[string]any{"imageinfo": []any{map[string]any{"url": "https://static.wikia.nocookie.net/test/images/a/aa/P.png", "mediatype": "BITMAP", "user": "Editor"}}}}}}}},
+		{"Categoría:Alicornio", "All Pages in", map[string]any{"membersdata": map[string]any{"query": map[string]any{"categorymembers": []any{map[string]any{"title": "Leaf Block"}}}}}},
+	} {
+		post := map[string]any{"wikiname": "mlp", "path": tc.title, "wikipage": map[string]any{"parse": map[string]any{"title": tc.title, "text": "<p>Example</p>"}}, "siteinfo": siteinfo}
+		for name, value := range tc.payload {
+			post[name] = value
+		}
+		blob, _ := json.Marshal(post)
+		got := response(s, "POST", "/mlp/es/wiki/"+url.PathEscape(tc.title), bytes.NewReader(blob), map[string]string{"Origin": "https://example.com"})
+		if got.Code != 200 || !strings.Contains(got.Body.String(), tc.extra) {
+			t.Errorf("localized JSONP %s: HTTP %d missing %q", tc.title, got.Code, tc.extra)
+		}
+	}
+}
+
+func TestLocalizedCanonicalNamespacesAndEscapedSourceLink(t *testing.T) {
+	siteinfo := map[string]any{"query": map[string]any{"namespaces": map[string]any{"6": map[string]any{"id": 6, "name": "Archivo", "canonical": "File"}, "14": map[string]any{"id": 14, "name": "Categoría", "canonical": "Category"}}}}
+	if got := namespaceKind(siteinfo, "file:Example.png"); got != "file" {
+		t.Errorf("lowercase canonical file namespace: %q", got)
+	}
+	if got := sourceURL("mlp", "es", "Hot_Dog...?"); got != "https://mlp.fandom.com/es/wiki/Hot_Dog...%3F" {
+		t.Errorf("source URL: %q", got)
 	}
 }

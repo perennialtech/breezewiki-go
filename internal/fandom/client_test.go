@@ -119,3 +119,24 @@ func TestRefusalBackoff(t *testing.T) {
 		t.Errorf("expected cross-wiki 30-second refusal cache; got %d calls", count.Load())
 	}
 }
+
+func TestFailedSiteInfoIsRetried(t *testing.T) {
+	attempts := 0
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = io.WriteString(w, `{"query":{"general":{"sitename":"Recovered Wiki"},"namespaces":{"6":{"name":"Archivo","canonical":"File"}}}}`)
+	}))
+	defer remote.Close()
+	c := New(config.New(map[string]string{"log_outgoing": "false"}))
+	c.HTTP = remote.Client()
+	c.Origin = func(string) string { return remote.URL }
+	first := c.SiteInfo(context.Background(), "test", "es")
+	second := c.SiteInfo(context.Background(), "test", "es")
+	if attempts != 2 || String(first, "query", "general", "sitename") == "Recovered Wiki" || String(second, "query", "general", "sitename") != "Recovered Wiki" {
+		t.Fatalf("failed siteinfo permanently cached: attempts %d, first %v, second %v", attempts, first, second)
+	}
+}

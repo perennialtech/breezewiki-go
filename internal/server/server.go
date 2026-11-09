@@ -83,11 +83,43 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if m := wikiPath.FindStringSubmatch(uri); m != nil {
 		wiki, rest := m[1], m[2]
+		var canonical string
+		switch wiki {
+		case "bfdi":
+			canonical = "battlefordreamisland"
+		case "mspa":
+			canonical = "mspaintadventures"
+		}
+		if canonical != "" {
+			escaped := r.URL.EscapedPath()
+			suffix := strings.TrimPrefix(escaped, "/")
+			i := 0
+			for n := 0; n < len(wiki); n++ {
+				if suffix[i] == '%' {
+					i += 3
+				} else {
+					i++
+				}
+			}
+			suffix = suffix[i:]
+			target := "/" + canonical + suffix
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			s.redirect(w, target)
+			return
+		}
 		lang := ""
 		if language := languagePath.FindStringSubmatch(rest); language != nil && language[1] != "wiki" {
 			lang, rest = language[1], language[2]
 		}
 		switch {
+		case rest == "wiki/Special:Random":
+			s.randomPage(w, r, wiki, lang)
+			return
+		case rest == "wiki/Special:AllPages":
+			s.article(w, r, wiki, lang, "Special:AllPages", "allpages")
+			return
 		case strings.HasPrefix(rest, "wiki/Category:") && len(rest) > len("wiki/Category:"):
 			s.article(w, r, wiki, lang, strings.TrimPrefix(rest, "wiki/"), "category")
 			return
@@ -97,8 +129,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		case strings.HasPrefix(rest, "wiki/") && len(rest) > len("wiki/"):
 			page := strings.TrimPrefix(rest, "wiki/")
 			kind := "wiki"
-			if lang != "" && strings.Contains(page, ":") {
-				kind = s.localizedNamespaceKind(r, wiki, lang, page)
+			if lang != "" && strings.Contains(page, ":") && !s.Config.True("feature_jsonp::enabled") {
+				kind = namespaceKind(s.Fandom.SiteInfo(r.Context(), wiki, lang), page)
 			}
 			s.article(w, r, wiki, lang, page, kind)
 			return
@@ -112,15 +144,15 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	s.notFound(w, r)
 }
-func (s *Server) localizedNamespaceKind(r *http.Request, wiki, lang, page string) string {
+func namespaceKind(info map[string]any, page string) string {
 	prefix, _, _ := strings.Cut(page, ":")
-	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
 	for _, namespace := range []struct {
 		id   int
 		kind string
 	}{{6, "file"}, {14, "category"}} {
 		name := fandom.String(info, "query", "namespaces", strconv.Itoa(namespace.id), "name")
-		if name != "" && strings.EqualFold(prefix, name) {
+		if name != "" && strings.EqualFold(prefix, name) ||
+			strings.EqualFold(prefix, fandom.String(info, "query", "namespaces", strconv.Itoa(namespace.id), "canonical")) {
 			return namespace.kind
 		}
 		aliases, _ := fandom.Value(info, "query", "namespacealiases").([]any)
@@ -236,9 +268,10 @@ func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, lang, titl
 		s.internalError(w, err)
 		return
 	}
-	if r.URL.Query().Get("redirect") != "no" {
+	if r.Method != http.MethodPost && r.URL.Query().Get("redirect") != "no" {
 		if m := redirectMessage.FindStringSubmatch(out); m != nil {
-			w.Header().Set("Refresh", "0;url="+html.UnescapeString(m[1]))
+			s.redirect(w, html.UnescapeString(m[1]))
+			return
 		}
 	}
 	s.html(w, 200, out)
@@ -351,11 +384,7 @@ func assetMIME(filename string) string {
 	return mime.TypeByExtension(filepath.Ext(filename))
 }
 func sourceURL(wiki, lang, page string) string {
-	path := ""
-	if lang != "" {
-		path = "/" + lang
-	}
-	return "https://" + wiki + ".fandom.com" + path + "/wiki/" + page
+	return "https://" + wiki + ".fandom.com" + strings.TrimPrefix(linkTo(wiki, lang, page), "/"+wiki)
 }
 func quote(v string) string { return html.EscapeString(v) }
 func linkTo(wiki, lang, title string) string {
@@ -374,7 +403,7 @@ func linkTo(wiki, lang, title string) string {
 func pathEscape(s string) string {
 	var b strings.Builder
 	for _, c := range []byte(s) {
-		if c <= 0x1f || c > 0x7e || strings.ContainsRune(";?`{} \"#<>", rune(c)) {
+		if c <= 0x1f || c > 0x7e || strings.ContainsRune("%;?`{} \"#<>", rune(c)) {
 			fmt.Fprintf(&b, "%%%02X", c)
 		} else {
 			b.WriteByte(c)

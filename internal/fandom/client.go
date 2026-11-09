@@ -149,7 +149,7 @@ func (c *Client) SiteInfo(ctx context.Context, wiki, lang string) map[string]any
 		return data
 	}
 	c.mu.Unlock()
-	data := DefaultSiteInfo
+	var data map[string]any
 	res, err := c.API(ctx, wiki, lang, SiteInfoParams, "")
 	if err == nil && res.Status == 200 {
 		if parsed, err := res.JSON(); err == nil {
@@ -157,6 +157,9 @@ func (c *Client) SiteInfo(ctx context.Context, wiki, lang string) map[string]any
 				data = parsed
 			}
 		}
+	}
+	if data == nil {
+		return DefaultSiteInfo
 	}
 	c.mu.Lock()
 	c.info[key] = data

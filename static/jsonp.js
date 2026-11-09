@@ -21,6 +21,22 @@ render(html`<progress value="${progress}" max="1"></progress>`, progressBar)
 
 // *** Incoming data processing
 
+let localizedExtraChecked = false
+
+function localizedExtraName(siteinfo, title) {
+    const prefix = title.split(":", 1)[0].toLowerCase()
+    const namespaces = siteinfo.query?.namespaces ?? {}
+    const aliases = siteinfo.query?.namespacealiases ?? []
+    for (const [id, extraName] of [[6, "imageinfo"], [14, "membersdata"]]) {
+        const namespace = namespaces[id]
+        if ([namespace?.name, namespace?.canonical].some(name => name?.toLowerCase() === prefix) ||
+                aliases.some(alias => alias.id === id && alias.alias?.toLowerCase() === prefix)) {
+            return extraName
+        }
+    }
+    return null
+}
+
 // Handle case where data is immediately available
 cont()
 
@@ -42,8 +58,22 @@ async function cont() {
 		if (v.error) return error(v)
 	}
 
-	// Check for completion
-	const dependencies = [...document.querySelectorAll("[data-jsonp-var]")].map(e => e.getAttribute("data-jsonp-var"))
+    // Localized namespaces use siteinfo fetched by the browser, not a server-side probe.
+    if (!localizedExtraChecked && BWData.localizedExtraEndpoints && jsonpData.siteinfo) {
+        localizedExtraChecked = true
+        const extraName = localizedExtraName(jsonpData.siteinfo, BWData.path)
+        if (extraName) {
+            const script = document.createElement("script")
+            script.async = true
+            script.dataset.jsonpVar = extraName
+            script.src = BWData.localizedExtraEndpoints[extraName]
+            script.onerror = () => proxy[extraName]({error: {code: "disconnected", info: "Fandom connection failed or was blocked by your browser."}})
+            document.head.appendChild(script)
+        }
+    }
+
+    // Check for completion
+    const dependencies = [...document.querySelectorAll("[data-jsonp-var]")].map(e => e.getAttribute("data-jsonp-var"))
 	for (const d of dependencies) {
 		if (!(d in jsonpData)) return
 	}
@@ -81,7 +111,13 @@ async function cont() {
 	xhr.addEventListener("load", () => {
 		console.log(xhr)
 		// check for errors
-		if (xhr.status === 500) return fetch(pkg.url, pkg.init).then(res => res.text()).then(error)
+		if (xhr.status === 500) {
+			return fetch(pkg.url, pkg.init)
+				.then(res => res.text())
+				.then(error)
+				.catch(() => error("HTTP 500: Could not retrieve server error details."))
+		}
+		if (xhr.status !== 200) return error(`HTTP ${xhr.status} ${xhr.statusText}`)
 		// page -> #content
 		const imported = document.importNode(xhr.responseXML.getElementById("content"), true)
 		document.getElementById("content").replaceWith(imported)
@@ -109,15 +145,18 @@ async function cont() {
 		}
 		// scroll
 		if (location.hash) {
-			document.getElementById(location.hash.slice(1)).scrollIntoView({behavior: "instant"})
+			document.getElementById(location.hash.slice(1))?.scrollIntoView({behavior: "instant"})
 		}
 		// redirects
 		const redirectTo = document.querySelector("#content .redirectMsg a")
-		if (redirectTo) {
-			redirectTo.click()
+		if (redirectTo && new URLSearchParams(location.search).get("redirect") !== "no") {
+			const destination = new URL(redirectTo.href, location.href)
+			if (!destination.hash) destination.hash = location.hash
+			location.assign(destination.href)
 		}
 		loaded.value = true
 	})
+	xhr.addEventListener("error", () => error("The page request failed due to a network error."))
 
 	xhr.open(pkg.init.method, pkg.url)
 	xhr.responseType = "document"

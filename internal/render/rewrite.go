@@ -12,13 +12,14 @@ import (
 )
 
 var (
-	wikiLinkRE       = regexp.MustCompile(`^https://([a-zA-Z0-9-]{1,50})\.fandom\.com(/(?:[a-zA-Z][a-zA-Z0-9-]*/)?wiki/.*)$`)
-	languageLinkRE   = regexp.MustCompile(`^/[a-zA-Z][a-zA-Z0-9-]*/wiki/`)
-	fandomResourceRE = regexp.MustCompile(`^https://(?:static\.wikia\.nocookie\.net/|[a-zA-Z0-9-]{1,50}\.fandom\.com/)`)
-	styleURLRE       = regexp.MustCompile(`url\(['"]?(.*?)['"]?\)`)
-	hiddenStyleRE    = regexp.MustCompile(`display: *none`)
-	toggleRE         = regexp.MustCompile(`^mw-customtoggle-[^ ]* button-c$`)
-	preprocessRE     = regexp.MustCompile(`(<(?:td|figcaption)[^>]*?>\n?)(?:[ \t]*<a href="[^"]*" class="info-icon"><svg><use xlink:href="#wds-icons-info-small"></use></svg></a>)?(?:<li>|[ \t]*?<p class="caption">(.*?)</p>)`)
+	wikiLinkRE           = regexp.MustCompile(`^https://([a-zA-Z0-9-]{1,50})\.fandom\.com(/(?:[a-zA-Z][a-zA-Z0-9-]*/)?wiki/.*)$`)
+	communityInterwikiRE = regexp.MustCompile(`^https://community\.fandom\.com/wiki/w:c:([a-zA-Z0-9-]{1,50})(?:(?::|%3[Aa])(.*))?$`)
+	languageLinkRE       = regexp.MustCompile(`^/[a-zA-Z][a-zA-Z0-9-]*/wiki/`)
+	fandomResourceRE     = regexp.MustCompile(`^https://(?:static\.wikia\.nocookie\.net/|[a-zA-Z0-9-]{1,50}\.fandom\.com/)`)
+	styleURLRE           = regexp.MustCompile(`url\(['"]?(.*?)['"]?\)`)
+	hiddenStyleRE        = regexp.MustCompile(`display: *none`)
+	toggleRE             = regexp.MustCompile(`^mw-customtoggle-[^ ]* button-c$`)
+	preprocessRE         = regexp.MustCompile(`(<(?:td|figcaption)[^>]*?>\n?)(?:[ \t]*<a href="[^"]*" class="info-icon"><svg><use xlink:href="#wds-icons-info-small"></use></svg></a>)?(?:<li>|[ \t]*?<p class="caption">(.*?)</p>)`)
 )
 
 // Rewrite applies the upstream article transformations to an HTML fragment.
@@ -328,9 +329,11 @@ func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 		}
 	}
 	if href, ok := getAttr(n, "href"); ok {
-		if parts := wikiLinkRE.FindStringSubmatch(href); parts != nil {
+		if parts := communityInterwikiRE.FindStringSubmatch(href); parts != nil {
+			href = "/" + parts[1] + "/wiki/" + parts[2]
+		} else if parts := wikiLinkRE.FindStringSubmatch(href); parts != nil {
 			href = "/" + parts[1] + parts[2]
-		} else if languageLinkRE.MatchString(href) {
+		} else if languageLinkRE.MatchString(href) && !strings.HasPrefix(href, "/wiki/") && !strings.HasPrefix(href, "/"+wiki+"/") {
 			href = "/" + wiki + href
 		} else if strings.HasPrefix(href, "/wiki/") {
 			prefix := "/" + wiki
