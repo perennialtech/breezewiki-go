@@ -82,7 +82,13 @@ async function cont() {
 	xhr.addEventListener("load", () => {
 		console.log(xhr)
 		// check for errors
-		if (xhr.status === 500) return fetch(pkg.url, pkg.init).then(res => res.text()).then(error)
+		if (xhr.status === 500) {
+			return fetch(pkg.url, pkg.init)
+				.then(res => res.text())
+				.then(error)
+				.catch(() => error("HTTP 500: Could not retrieve server error details."))
+		}
+		if (xhr.status !== 200) return error(`HTTP ${xhr.status} ${xhr.statusText}`)
 		// page -> #content
 		const imported = document.importNode(xhr.responseXML.getElementById("content"), true)
 		document.getElementById("content").replaceWith(imported)
@@ -111,15 +117,18 @@ async function cont() {
 		}
 		// scroll
 		if (location.hash) {
-			document.getElementById(location.hash.slice(1)).scrollIntoView({behavior: "instant"})
+			document.getElementById(location.hash.slice(1))?.scrollIntoView({behavior: "instant"})
 		}
 		// redirects
 		const redirectTo = document.querySelector("#content .redirectMsg a")
-		if (redirectTo) {
-			redirectTo.click()
+		if (redirectTo && new URLSearchParams(location.search).get("redirect") !== "no") {
+			const destination = new URL(redirectTo.href, location.href)
+			if (!destination.hash) destination.hash = location.hash
+			location.assign(destination.href)
 		}
 		loaded.value = true
 	})
+	xhr.addEventListener("error", () => error("The page request failed due to a network error."))
 
 	xhr.open(pkg.init.method, pkg.url)
 	xhr.responseType = "document"
