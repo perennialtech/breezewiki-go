@@ -138,8 +138,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 }
 func (s *Server) common(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "same-origin")
-	w.Header().Set("Link", fmt.Sprintf("<%s>; rel=preload; as=style, <%s>; rel=preload; as=script, </static/source-sans-pro-v21-vietnamese_latin-ext_latin_greek-ext_greek_cyrillic-ext_cyrillic-regular.woff2>; rel=preload; as=font; crossorigin; type=font/woff2",
-		s.staticURL("main.css"), s.staticURL("preact.js")))
+	w.Header().Set("Link", fmt.Sprintf("<%s>; rel=preload; as=style, <%s>; rel=preload; as=script, <%s>; rel=preload; as=font; crossorigin; type=font/woff2",
+		s.staticURL("main.css"), s.staticURL("preact.js"),
+		s.staticURL("source-sans-pro-v21-vietnamese_latin-ext_latin_greek-ext_greek_cyrillic-ext_cyrillic-regular.woff2")))
 }
 func (s *Server) staticURL(name string) string {
 	if s.StaticDir != "" {
@@ -251,7 +252,8 @@ func (s *Server) pageHTML(r *http.Request, wiki, title, source, content, head st
 		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path,
 		CurrentURL: r.URL.RequestURI(), Notices: notices(r),
 		ExternalNoticeHTML:       s.genericNotice(r.Context(), wiki, title),
-		DisableSearchSuggestions: !s.Config.True("feature_search_suggestions")})
+		DisableSearchSuggestions: !s.Config.True("feature_search_suggestions"),
+		StaticURL:                s.staticURL})
 	if err != nil {
 		return "", err
 	}

@@ -20,6 +20,8 @@ type Options struct {
 	CurrentURL                                                                                string
 	ExternalNoticeHTML                                                                        string
 	DisableSearchSuggestions                                                                  bool
+	// StaticURL returns a cache-versioned URL for a bundled file; nil uses /static/name.
+	StaticURL func(string) string
 }
 
 var (
@@ -109,6 +111,10 @@ func Page(content string, opts Options) (string, error) {
 	if opts.Wiki == "" {
 		return "", fmt.Errorf("render page: wiki is required")
 	}
+	staticURL := opts.StaticURL
+	if staticURL == nil {
+		staticURL = func(name string) string { return "/static/" + name }
+	}
 	app := opts.ApplicationName
 	if app == "" {
 		app = "BreezeWiki"
@@ -131,7 +137,7 @@ func Page(content string, opts Options) (string, error) {
 			bodyClass += " " + selected
 		}
 	}
-	favicon := "/static/breezewiki-favicon.svg"
+	favicon := staticURL("breezewiki-favicon.svg")
 	if m := iconURLRE.FindStringSubmatch(opts.HeadHTML); m != nil {
 		favicon = m[1]
 	}
@@ -145,12 +151,12 @@ func Page(content string, opts Options) (string, error) {
 		return "", err
 	}
 	imports, err := json.Marshal(map[string]any{"imports": map[string]string{
-		"captcha":            "/static/captcha.js",
-		"countdown":          "/static/countdown.js",
-		"jsonp":              "/static/jsonp.js",
-		"preact":             "/static/preact.js",
-		"search-suggestions": "/static/search-suggestions.js",
-		"tabs":               "/static/tabs.js",
+		"captcha":            staticURL("captcha.js"),
+		"countdown":          staticURL("countdown.js"),
+		"jsonp":              staticURL("jsonp.js"),
+		"preact":             staticURL("preact.js"),
+		"search-suggestions": staticURL("search-suggestions.js"),
+		"tabs":               staticURL("tabs.js"),
 	}})
 	if err != nil {
 		return "", err
@@ -164,7 +170,9 @@ func Page(content string, opts Options) (string, error) {
 		b.WriteString(escaped(style))
 		b.WriteString(`">`)
 	}
-	b.WriteString(`<link rel="stylesheet" type="text/css" href="/static/main.css">`)
+	b.WriteString(`<link rel="stylesheet" type="text/css" href="`)
+	b.WriteString(escaped(staticURL("main.css")))
+	b.WriteString(`">`)
 	b.WriteString("<script>const BWData = ")
 	b.Write(jsData)
 	b.WriteString("</script><script type=\"importmap\">")
@@ -175,8 +183,8 @@ func Page(content string, opts Options) (string, error) {
 		scripts = append([]string{"search-suggestions.js"}, scripts...)
 	}
 	for _, script := range scripts {
-		b.WriteString(`<script type="module" src="/static/`)
-		b.WriteString(script)
+		b.WriteString(`<script type="module" src="`)
+		b.WriteString(escaped(staticURL(script)))
 		b.WriteString(`"></script>`)
 	}
 	b.WriteString(`<link rel="icon" href="`)
@@ -218,7 +226,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(`</span></div></nav></div><div id="content"><div id="mw-content-text">`)
 	b.WriteString(content)
 	b.WriteString("</div></div>")
-	footer(&b, opts.SourceURL, app, licenseText, licenseURL)
+	footer(&b, opts.SourceURL, app, licenseText, licenseURL, staticURL("breezewiki.svg"))
 	b.WriteString("</main></div></div></body></html>")
 	return b.String(), nil
 }
@@ -241,14 +249,16 @@ func titleBreadcrumbs(b *strings.Builder, title string) {
 	}
 }
 
-func footer(b *strings.Builder, source, app, license, licenseURL string) {
+func footer(b *strings.Builder, source, app, license, licenseURL, logoURL string) {
 	b.WriteString(`<footer class="custom-footer"><div class="`)
 	if source != "" {
 		b.WriteString("custom-footer__cols")
 	} else {
 		b.WriteString("internal-footer")
 	}
-	b.WriteString(`"><div><p><img class="my-logo" src="/static/breezewiki.svg"></p><p><a href="https://github.com/perennialtech/breezewiki-go">`)
+	b.WriteString(`"><div><p><img class="my-logo" src="`)
+	b.WriteString(escaped(logoURL))
+	b.WriteString(`"></p><p><a href="https://github.com/perennialtech/breezewiki-go">`)
 	b.WriteString(escaped(app))
 	b.WriteString(` source code</a></p><p><a href="https://docs.breezewiki.com">Documentation and more information</a></p><p><a href="https://lists.sr.ht/~cadence/breezewiki-discuss">Chat / Bug reports / Feature requests</a></p><p>This unofficial instance is based off the `)
 	b.WriteString(escaped(app))
