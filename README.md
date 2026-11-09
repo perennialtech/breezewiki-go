@@ -16,8 +16,8 @@ Go 1.26 or later is required. Run `make ci` to test, vet, and build every
 package. Build the server and run it with default configuration:
 
 ```sh
-go build -o breezewiki ./cmd/breezewiki
-./breezewiki
+go build -o breezewiki-go ./cmd/breezewiki
+./breezewiki-go
 ```
 
 The default port is `10416`. A `config.ini` file is optional and follows the
@@ -46,7 +46,7 @@ enabled = true
 ```
 
 `BW_` environment variables override file settings. Nested settings use `::`,
-for example `env 'BW_FEATURE_JSONP::ENABLED=false' ./breezewiki` to load pages
+for example `env 'BW_FEATURE_JSONP::ENABLED=false' ./breezewiki-go` to load pages
 server-side rather than through browser JSONP and a same-origin POST. The
 original config option names, including `strict_proxy`, theme cookies,
 `feature_search_suggestions`, and CAPTCHA settings, are retained.
@@ -54,6 +54,24 @@ original config option names, including `strict_proxy`, theme cookies,
 The Fandom HTTP transport uses browser-compatible TLS and HTTP/2 settings
 because Fandom's edge currently rejects Go's default HTTP fingerprint. Access
 may still depend on Fandom's availability and anti-bot policies.
+
+## Docker
+
+Run the published image:
+
+```sh
+docker run --rm -p 10416:10416 ghcr.io/perennialtech/breezewiki-go:latest
+```
+
+Open `http://localhost:10416`. Alternatively, use the included `compose.yaml`:
+
+```sh
+docker compose up -d
+```
+
+The container listens on all interfaces at port `10416`, uses embedded assets,
+and supports the same `BW_` environment variables as the native server. For
+example, pass `-e BW_ACCESS_LOG::ENABLED=true` to `docker run` to log requests.
 
 ## Offline archiving
 

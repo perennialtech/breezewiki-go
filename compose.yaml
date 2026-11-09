@@ -1,0 +1,5 @@
+services:
+  breezewiki-go:
+    image: ghcr.io/perennialtech/breezewiki-go:latest
+    ports:
+      - "10416:10416"
