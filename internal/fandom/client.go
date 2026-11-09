@@ -115,12 +115,16 @@ func canonical(cfg *config.Config) string {
 	}
 	return cfg.Get("canonical_origin")
 }
-func (c *Client) API(ctx context.Context, wiki string, params []Param, theme string) (Response, error) {
+func (c *Client) API(ctx context.Context, wiki, lang string, params []Param, theme string) (Response, error) {
 	q := url.Values{}
 	for _, p := range params {
 		q.Add(p.Key, p.Value)
 	}
-	return c.Get(ctx, wiki, "/api.php?"+q.Encode(), theme)
+	path := "/api.php?"
+	if lang != "" {
+		path = "/" + lang + path
+	}
+	return c.Get(ctx, wiki, path+q.Encode(), theme)
 }
 
 var SiteInfoParams = []Param{
@@ -134,18 +138,19 @@ var DefaultSiteInfo = map[string]any{"query": map[string]any{
 
 // SiteInfo mirrors upstream's memoized siteinfo-fetch: unsuccessful requests
 // produce defaults; successful results are cached for the process lifetime.
-func (c *Client) SiteInfo(ctx context.Context, wiki string) map[string]any {
+func (c *Client) SiteInfo(ctx context.Context, wiki, lang string) map[string]any {
+	key := wiki + "/" + lang
 	c.mu.Lock()
 	if c.info == nil {
 		c.info = make(map[string]map[string]any)
 	}
-	if data, ok := c.info[wiki]; ok {
+	if data, ok := c.info[key]; ok {
 		c.mu.Unlock()
 		return data
 	}
 	c.mu.Unlock()
 	data := DefaultSiteInfo
-	res, err := c.API(ctx, wiki, SiteInfoParams, "")
+	res, err := c.API(ctx, wiki, lang, SiteInfoParams, "")
 	if err == nil && res.Status == 200 {
 		if parsed, err := res.JSON(); err == nil {
 			if _, ok := parsed["query"].(map[string]any); ok {
@@ -154,7 +159,7 @@ func (c *Client) SiteInfo(ctx context.Context, wiki string) map[string]any {
 		}
 	}
 	c.mu.Lock()
-	c.info[wiki] = data
+	c.info[key] = data
 	c.mu.Unlock()
 	return data
 }

@@ -14,12 +14,12 @@ import (
 // wiki-specific transformations. SiteInfo accepts sitename and rightsinfo
 // license fields from the MediaWiki siteinfo response.
 type Options struct {
-	Wiki, Title, SourceURL, CanonicalOrigin, ApplicationName, Theme, SiteName, Path, HeadHTML string
-	SiteInfo                                                                                  map[string]any
-	Notices                                                                                   []string
-	CurrentURL                                                                                string
-	ExternalNoticeHTML                                                                        string
-	DisableSearchSuggestions                                                                  bool
+	Wiki, Lang, Title, SourceURL, CanonicalOrigin, ApplicationName, Theme, SiteName, Path, HeadHTML string
+	SiteInfo                                                                                        map[string]any
+	Notices                                                                                         []string
+	CurrentURL                                                                                      string
+	ExternalNoticeHTML                                                                              string
+	DisableSearchSuggestions                                                                        bool
 	// StaticURL returns a cache-versioned URL for a bundled file; nil uses /static/name.
 	StaticURL func(string) string
 }
@@ -97,7 +97,11 @@ func themeLink(opts Options, theme string) string {
 		path = opts.Path
 	}
 	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
-		path = "/" + opts.Wiki + "/wiki/" + pathForPage(opts)
+		path = "/" + opts.Wiki
+		if opts.Lang != "" {
+			path += "/" + opts.Lang
+		}
+		path += "/wiki/" + pathForPage(opts)
 	}
 	values := url.Values{}
 	values.Set("next_location", path)
@@ -142,11 +146,15 @@ func Page(content string, opts Options) (string, error) {
 		favicon = m[1]
 	}
 	licenseText, licenseURL := licenseInfo(opts.SiteInfo)
+	resourceLang := opts.Lang
+	if resourceLang == "" {
+		resourceLang = "en"
+	}
 	styles := []string{
 		origin + "/wikia.php?controller=ThemeApi&method=themeVariables&variant=" + url.QueryEscape(theme),
-		origin + "/load.php?lang=en&modules=site.styles%7Cskin.fandomdesktop.styles%7Cext.fandom.PortableInfoboxFandomDesktop.css%7Cext.fandom.GlobalComponents.CommunityHeaderBackground.css%7Cext.fandom.photoGallery.gallery.css%7Cext.gadget.site-styles%2Csound-styles&only=styles&skin=fandomdesktop",
+		origin + "/load.php?lang=" + url.QueryEscape(resourceLang) + "&modules=site.styles%7Cskin.fandomdesktop.styles%7Cext.fandom.PortableInfoboxFandomDesktop.css%7Cext.fandom.GlobalComponents.CommunityHeaderBackground.css%7Cext.fandom.photoGallery.gallery.css%7Cext.gadget.site-styles%2Csound-styles&only=styles&skin=fandomdesktop",
 	}
-	jsData, err := json.Marshal(map[string]any{"wikiname": opts.Wiki, "strict_proxy": false, "path": pathForPage(opts), "jsonp": nil})
+	jsData, err := json.Marshal(map[string]any{"wikiname": opts.Wiki, "lang": opts.Lang, "strict_proxy": false, "path": pathForPage(opts), "jsonp": nil})
 	if err != nil {
 		return "", err
 	}
@@ -190,8 +198,16 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(escaped(favicon))
 	b.WriteString(`">`)
 	if opts.CanonicalOrigin != "" {
+		canonicalPath := opts.Path
+		if !strings.HasPrefix(canonicalPath, "/"+opts.Wiki+"/") {
+			canonicalPath = "/" + opts.Wiki
+			if opts.Lang != "" {
+				canonicalPath += "/" + opts.Lang
+			}
+			canonicalPath += "/wiki/" + strings.TrimPrefix(pathForPage(opts), "/")
+		}
 		b.WriteString(`<link rel="canonical" href="`)
-		b.WriteString(escaped(strings.TrimRight(opts.CanonicalOrigin, "/") + "/" + opts.Wiki + "/wiki/" + strings.TrimPrefix(pathForPage(opts), "/")))
+		b.WriteString(escaped(strings.TrimRight(opts.CanonicalOrigin, "/") + canonicalPath))
 		b.WriteString(`">`)
 	}
 	b.WriteString(`</head><body class="`)
@@ -206,6 +222,10 @@ func Page(content string, opts Options) (string, error) {
 	titleBreadcrumbs(&b, opts.Title)
 	b.WriteString(`</h1><nav class="sitesearch"><form action="/`)
 	b.WriteString(escaped(opts.Wiki))
+	if opts.Lang != "" {
+		b.WriteString("/")
+		b.WriteString(escaped(opts.Lang))
+	}
 	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
 	for _, t := range []string{"default", "light", "dark"} {
 		class := "bw-theme__item"

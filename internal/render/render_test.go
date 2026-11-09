@@ -11,7 +11,7 @@ import (
 
 func mustRewrite(t *testing.T, source string) string {
 	t.Helper()
-	got, err := Rewrite(source, "test")
+	got, err := Rewrite(source, "test", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +77,19 @@ func TestWikiLinkAndImages(t *testing.T) {
 	}
 }
 
+func TestLanguageWikiLinks(t *testing.T) {
+	input := `<a href="/es/wiki/Local">Local</a><a href="/wiki/Implicit">Implicit</a>` +
+		`<a href="https://mlp.fandom.com/es/wiki/One">One</a>` +
+		`<a href="https://other.fandom.com/fr/wiki/Deux">Deux</a>` +
+		`<a href="/fr/wiki/Another">Another language</a>`
+	got, err := Rewrite(input, "mlp", "es")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, `href="/mlp/es/wiki/Local"`, `href="/mlp/es/wiki/Implicit"`,
+		`href="/mlp/es/wiki/One"`, `href="/other/fr/wiki/Deux"`, `href="/mlp/fr/wiki/Another"`)
+}
+
 func TestStrictProxyUpstreamExamples(t *testing.T) {
 	got, err := RewriteWithProxy(`<div style="background-image:url('https://static.wikia.nocookie.net/bg.png')">
 		<a class="image image-thumbnail" href="https://static.wikia.nocookie.net/original.png">
@@ -84,7 +97,7 @@ func TestStrictProxyUpstreamExamples(t *testing.T) {
 		</a>
 		<img src="https://example.org/independent.png">
 		<a class="image" href="https://test.fandom.com/wiki/Image:Test">file</a>
-	</div>`, "test", true)
+	</div>`, "test", "", true)
 	if err != nil {
 		t.Fatal(err)
 	}

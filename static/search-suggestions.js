@@ -20,7 +20,7 @@ const enterWasLastKey = signal(false)
 function fetchSuggestions(query, setSuggestions) {
 	if (query === "") query = "\0"
 	if (hitsPromise.has(query)) return hitsPromise.get(query)
-	const url = new URL(`https://${BWData.wikiname}.fandom.com/api.php`)
+	const url = new URL(`https://${BWData.wikiname}.fandom.com${BWData.lang ? `/${BWData.lang}` : ""}/api.php`)
 	url.searchParams.set("action", "opensearch")
 	url.searchParams.set("format", "json")
 	url.searchParams.set("namespace", "0") // wiki namespace, 0 is default
@@ -43,8 +43,8 @@ function fetchSuggestions(query, setSuggestions) {
 function acceptSuggestion(hit) {
 	st.value = "accepted"
 	query.value = hit.title
-	const dest = new URL(hit.url).pathname.match("/wiki/.*")
-	location = `/${BWData.wikiname}${dest}`
+	const dest = new URL(hit.url).pathname
+	location = `/${BWData.wikiname}${BWData.lang && dest.startsWith("/wiki/") ? `/${BWData.lang}` : ""}${dest}`
 }
 
 // suggestion list view
