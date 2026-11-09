@@ -130,7 +130,16 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			page := strings.TrimPrefix(rest, "wiki/")
 			kind := "wiki"
 			if lang != "" && strings.Contains(page, ":") && !s.Config.True("feature_jsonp::enabled") {
-				kind = namespaceKind(s.Fandom.SiteInfo(r.Context(), wiki, lang), page)
+				siteinfo := s.Fandom.SiteInfo(r.Context(), wiki, lang)
+				switch specialPageKind(siteinfo, page) {
+				case "random":
+					s.randomPage(w, r, wiki, lang)
+					return
+				case "allpages":
+					s.article(w, r, wiki, lang, "Special:AllPages", "allpages")
+					return
+				}
+				kind = namespaceKind(siteinfo, page)
 			}
 			s.article(w, r, wiki, lang, page, kind)
 			return
@@ -147,6 +156,52 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	s.notFound(w, r)
 }
+func specialPageKind(info map[string]any, page string) string {
+	prefix, name, ok := strings.Cut(page, ":")
+	if !ok {
+		return ""
+	}
+	normalize := func(s string) string { return strings.ToLower(strings.ReplaceAll(s, "_", " ")) }
+	ns := fandom.String(info, "query", "namespaces", "-1", "name")
+	canonical := fandom.String(info, "query", "namespaces", "-1", "canonical")
+	specialNS := strings.EqualFold(prefix, "Special") || ns != "" && strings.EqualFold(prefix, ns) || canonical != "" && strings.EqualFold(prefix, canonical)
+	aliases, _ := fandom.Value(info, "query", "namespacealiases").([]any)
+	for _, alias := range aliases {
+		id, _ := fandom.Value(alias, "id").(float64)
+		if id == -1 && strings.EqualFold(prefix, fandom.String(alias, "alias")) {
+			specialNS = true
+		}
+	}
+	if !specialNS {
+		return ""
+	}
+	pages, _ := fandom.Value(info, "query", "specialpagealiases").([]any)
+	for _, pageAlias := range pages {
+		realName := fandom.String(pageAlias, "realname")
+		kind := ""
+		switch strings.ToLower(realName) {
+		case "randompage":
+			kind = "random"
+		case "allpages":
+			kind = "allpages"
+		}
+		if kind == "" {
+			continue
+		}
+		if normalize(name) == normalize(realName) {
+			return kind
+		}
+		names, _ := fandom.Value(pageAlias, "aliases").([]any)
+		for _, alias := range names {
+			value, _ := alias.(string)
+			if normalize(name) == normalize(value) {
+				return kind
+			}
+		}
+	}
+	return ""
+}
+
 func namespaceKind(info map[string]any, page string) string {
 	prefix, _, _ := strings.Cut(page, ":")
 	for _, namespace := range []struct {

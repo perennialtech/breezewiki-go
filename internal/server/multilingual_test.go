@@ -136,13 +136,13 @@ func TestLocalizedCategoryAndFileNamespaces(t *testing.T) {
 func TestLocalizedJSONPUsesBrowserSiteInfoForNamespaces(t *testing.T) {
 	calls := 0
 	s, _ := mockServer(t, nil, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(http.StatusServiceUnavailable) })
-	for _, route := range []string{"/mlp/es/wiki/Archivo:Example.png", "/mlp/es/wiki/Categor%C3%ADa:Alicornio"} {
+	for _, route := range []string{"/mlp/es/wiki/Archivo:Example.png", "/mlp/es/wiki/Categor%C3%ADa:Alicornio", "/mlp/es/wiki/Especial:Aleatoria", "/mlp/es/wiki/Especial:Todas_las_p%C3%A1ginas"} {
 		got := response(s, "GET", route, nil, nil)
 		if got.Code != 200 || calls != 0 {
 			t.Fatalf("GET %s: HTTP %d, server-side API calls %d", route, got.Code, calls)
 		}
-		if !strings.Contains(got.Body.String(), "localizedExtraEndpoints") {
-			t.Errorf("missing browser-side namespace lookup: %s", route)
+		if !strings.Contains(got.Body.String(), "localizedExtraEndpoints") || !strings.Contains(got.Body.String(), "specialpagealiases") {
+			t.Errorf("missing browser-side namespace or special-page aliases: %s", route)
 		}
 	}
 	siteinfo := map[string]any{"query": map[string]any{"namespaces": map[string]any{
@@ -210,5 +210,41 @@ func TestLocalizedCommentsUseLanguageEndpoint(t *testing.T) {
 	result := response(s, "GET", "/mlp/es/comments?title=Twilight_Sparkle", nil, nil)
 	if result.Code != 200 || commentsPath != "/es/wikia.php" || !strings.Contains(result.Body.String(), "21 comments") {
 		t.Fatalf("localized comment request: HTTP %d upstream %q", result.Code, commentsPath)
+	}
+}
+
+func TestLocalizedSpecialPageAliases(t *testing.T) {
+	parseRequests := 0
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("meta") == "siteinfo" {
+			if !strings.Contains(q.Get("siprop"), "specialpagealiases") {
+				t.Errorf("siteinfo did not request special-page aliases: %s", q.Get("siprop"))
+			}
+			_, _ = io.WriteString(w, `{"query":{"general":{"base":"/es/wiki/Inicio"},"namespaces":{"-1":{"id":-1,"name":"Especial","canonical":"Special"}},"specialpagealiases":[{"realname":"Randompage","aliases":["Aleatoria","RandomPage"]},{"realname":"Allpages","aliases":["Todas_las_páginas","AllPages"]}]}}`)
+			return
+		}
+		switch q.Get("list") {
+		case "random":
+			_, _ = io.WriteString(w, `{"query":{"random":[{"title":"Página de prueba"}]}}`)
+		case "allpages":
+			_, _ = io.WriteString(w, `{"query":{"allpages":[{"title":"Primer artículo"}]}}`)
+		default:
+			if q.Get("action") == "parse" {
+				parseRequests++
+			}
+			upstreamAPI(w, r)
+		}
+	})
+	random := response(s, "GET", "/mlp/es/wiki/Especial:Aleatoria", nil, nil)
+	if random.Code != http.StatusFound || random.Header().Get("Location") != "/mlp/es/wiki/P%C3%A1gina_de_prueba" {
+		t.Fatalf("localized random: HTTP %d redirect %q", random.Code, random.Header().Get("Location"))
+	}
+	all := response(s, "GET", "/mlp/es/wiki/Especial:Todas_las_p%C3%A1ginas", nil, nil)
+	if all.Code != http.StatusOK || !strings.Contains(all.Body.String(), "Primer artículo") {
+		t.Fatalf("localized all pages: HTTP %d, contains page=%v", all.Code, strings.Contains(all.Body.String(), "Primer artículo"))
+	}
+	if parseRequests != 0 {
+		t.Fatalf("localized special pages fell through to article parsing %d times", parseRequests)
 	}
 }

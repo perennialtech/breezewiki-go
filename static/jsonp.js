@@ -37,6 +37,22 @@ function localizedExtraName(siteinfo, title) {
     return null
 }
 
+function localizedSpecialPage(siteinfo, title) {
+    const [prefix, name] = title.split(":", 2)
+    if (!name) return null
+    const normalize = value => value?.replaceAll("_", " ").toLowerCase()
+    const special = siteinfo.query?.namespaces?.[-1]
+    const aliases = siteinfo.query?.namespacealiases ?? []
+    const isSpecial = ["Special", special?.name, special?.canonical].some(value => value?.toLowerCase() === prefix.toLowerCase()) ||
+        aliases.some(alias => alias.id === -1 && alias.alias?.toLowerCase() === prefix.toLowerCase())
+    if (!isSpecial) return null
+    for (const [realName, canonical] of [["Randompage", "Random"], ["Allpages", "AllPages"]]) {
+        const entry = siteinfo.query?.specialpagealiases?.find(item => item.realname?.toLowerCase() === realName.toLowerCase())
+        if (entry && [realName, ...entry.aliases].some(alias => normalize(alias) === normalize(name))) return canonical
+    }
+    return null
+}
+
 // Handle case where data is immediately available
 cont()
 
@@ -53,6 +69,13 @@ window.proxy = new Proxy(jsonpData, {
 // *** Data upload and download
 
 async function cont() {
+    if (BWData.lang && BWData.path?.includes(":") && jsonpData.siteinfo) {
+        const special = localizedSpecialPage(jsonpData.siteinfo, BWData.path)
+        if (special) {
+            location.replace(`/${BWData.wikiname}/${BWData.lang}/wiki/Special:${special}${location.search}${location.hash}`)
+            return
+        }
+    }
 	// Check for errors
 	for (const v of Object.values(jsonpData)) {
 		if (v.error) return error(v)
