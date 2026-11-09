@@ -61,12 +61,12 @@ function Suggestion({index, ...hit}) {
 			acceptSuggestion(hit)
 		}
 	})
-	return html`<li class="bw-ss__item"><a class=${classNames(["bw-ss__button", selectedIndex.value === index && "bw-ss__button--selected"])} href=${suggestionURL(hit)}>${hit.title}</a></li>`
+	return html`<li class="bw-ss__item"><a class=${classNames(["bw-ss__button", selectedIndex.value === index && "bw-ss__button--selected"])} href=${suggestionURL(hit)} onFocus=${() => selectedIndex.value = index}>${hit.title}</a></li>`
 }
 
 function DefaultSearch({q}) {
 	if (!q) return ""
-	return html`<li class="bw-ss__item"><button type="submit" class=${classNames(["bw-ss__button", selectedIndex.value === suggestions.value.length && "bw-ss__button--selected"])}>Results for "${q}"</button></li>`
+	return html`<li class="bw-ss__item"><button type="submit" onFocus=${() => selectedIndex.value = suggestions.value.length} class=${classNames(["bw-ss__button", selectedIndex.value === suggestions.value.length && "bw-ss__button--selected"])}>Results for "${q}"</button></li>`
 }
 
 function SuggestionList() {
