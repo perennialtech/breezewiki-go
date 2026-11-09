@@ -83,6 +83,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	if m := wikiPath.FindStringSubmatch(uri); m != nil {
 		wiki, rest := m[1], m[2]
 		switch {
+		case rest == "wiki/Special:Random":
+			s.randomPage(w, r, wiki)
+			return
+		case rest == "wiki/Special:AllPages":
+			s.article(w, r, wiki, "Special:AllPages", "allpages")
+			return
 		case strings.HasPrefix(rest, "wiki/Category:") && len(rest) > len("wiki/Category:"):
 			s.article(w, r, wiki, strings.TrimPrefix(rest, "wiki/"), "category")
 			return
