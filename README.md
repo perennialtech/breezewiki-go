@@ -1,4 +1,4 @@
-# BreezeWiki Go
+# breezewiki-go
 
 A Go rewrite of [BreezeWiki](https://gitdab.com/cadence/breezewiki), an
 alternative frontend for Fandom wikis. It serves the same page routes, removes
