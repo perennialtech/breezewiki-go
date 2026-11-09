@@ -109,12 +109,14 @@ async function cont() {
 		}
 		// scroll
 		if (location.hash) {
-			document.getElementById(location.hash.slice(1)).scrollIntoView({behavior: "instant"})
+			document.getElementById(location.hash.slice(1))?.scrollIntoView({behavior: "instant"})
 		}
 		// redirects
 		const redirectTo = document.querySelector("#content .redirectMsg a")
-		if (redirectTo) {
-			redirectTo.click()
+		if (redirectTo && new URLSearchParams(location.search).get("redirect") !== "no") {
+			const destination = new URL(redirectTo.href, location.href)
+			if (!destination.hash) destination.hash = location.hash
+			location.assign(destination.href)
 		}
 		loaded.value = true
 	})
