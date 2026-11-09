@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/perennialtech/breezewiki-go/internal/archive"
-	"golang.org/x/sys/unix"
+	"golang.org/x/term"
 )
 
 func main() {
@@ -100,12 +100,11 @@ func toInt(b bool) int {
 	return 0
 }
 func isTerminal() bool {
-	_, err := unix.IoctlGetWinsize(int(os.Stdin.Fd()), unix.TIOCGWINSZ)
-	return err == nil
+	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 func terminalWidth() int {
-	if size, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ); err == nil && size.Col > 0 {
-		return int(size.Col)
+	if width, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && width > 0 {
+		return width
 	}
 	if n, err := strconv.Atoi(os.Getenv("COLUMNS")); err == nil && n > 0 {
 		return n

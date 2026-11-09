@@ -8,7 +8,7 @@ require (
 	github.com/bogdanfinn/tls-client v1.16.0
 	golang.org/x/image v0.47.0
 	golang.org/x/net v0.58.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/term v0.45.0
 	modernc.org/sqlite v1.62.0
 )
 
@@ -30,6 +30,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5 // indirect
 	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
