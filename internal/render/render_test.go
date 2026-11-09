@@ -386,3 +386,11 @@ func TestWikiHomeNavigation(t *testing.T) {
 	}
 	requireContains(t, out, `<a href="/example/">Wiki home</a>`)
 }
+
+func TestLocalizedWikiHomeNavigation(t *testing.T) {
+	out, err := Page("<p>Artículo</p>", Options{Wiki: "mlp", Lang: "es", Title: "Artículo", Path: "/mlp/es/wiki/Artículo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `<a href="/mlp/es/wiki">Wiki home</a>`)
+}

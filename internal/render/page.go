@@ -245,8 +245,11 @@ func Page(content string, opts Options) (string, error) {
 	if opts.Lang != "" {
 		b.WriteString("/")
 		b.WriteString(escaped(opts.Lang))
+		b.WriteString(`/wiki`)
+	} else {
+		b.WriteString("/")
 	}
-	b.WriteString(`/">Wiki home</a>`)
+	b.WriteString(`">Wiki home</a>`)
 	if strings.Contains(opts.Path, "/wiki/") && !strings.Contains(opts.Path, "/wiki/Special:") && opts.SourceURL != "" {
 		b.WriteString(`<a rel="nofollow" href="`)
 		b.WriteString(escaped(historyURL(opts)))
