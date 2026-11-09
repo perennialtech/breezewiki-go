@@ -87,7 +87,8 @@ effect(() => {
 	})
 })
 
-window.addEventListener("pageshow", () => {
+window.addEventListener("pageshow", event => {
+	if (!event.persisted) return
 	pendingEnter = false
 	st.value = "ready" // unlock results from changing after returning to page
 })
