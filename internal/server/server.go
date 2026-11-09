@@ -247,7 +247,8 @@ func (s *Server) pageHTML(r *http.Request, wiki, title, source, content, head st
 	origin := s.Config.Get("canonical_origin")
 	out, err := render.Page(content, render.Options{Wiki: wiki, Title: title, SourceURL: source,
 		CanonicalOrigin: origin, ApplicationName: s.Config.Get("application_name"),
-		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path})
+		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path,
+		CurrentURL: r.URL.RequestURI(), Notices: notices(r)})
 	if err != nil {
 		return "", err
 	}
@@ -270,6 +271,14 @@ func theme(r *http.Request) string {
 	}
 	return "default"
 }
+func notices(r *http.Request) []string {
+	cookie, err := r.Cookie("notices")
+	if err != nil || cookie.Value == "" {
+		return nil
+	}
+	return strings.Split(cookie.Value, "|")
+}
+
 func (s *Server) siteInfo(ctx context.Context, wiki string) map[string]any {
 	if s.Config.True("feature_offline::only") {
 		return s.offlineSiteInfo(ctx, wiki)

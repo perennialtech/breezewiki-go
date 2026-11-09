@@ -16,6 +16,8 @@ import (
 type Options struct {
 	Wiki, Title, SourceURL, CanonicalOrigin, ApplicationName, Theme, SiteName, Path, HeadHTML string
 	SiteInfo                                                                                  map[string]any
+	Notices                                                                                   []string
+	CurrentURL                                                                                string
 }
 
 var (
@@ -85,13 +87,16 @@ func pathForPage(opts Options) string {
 }
 
 func themeLink(opts Options, theme string) string {
-	path := opts.Path
-	if !strings.HasPrefix(path, "/") {
+	path := opts.CurrentURL
+	if path == "" {
+		path = opts.Path
+	}
+	if !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
 		path = "/" + opts.Wiki + "/wiki/" + pathForPage(opts)
 	}
 	values := url.Values{}
 	values.Set("next_location", path)
-	values.Set("new_settings", "#s(user-cookies^ "+theme+" ())")
+	values.Set("new_settings", "#s(user-cookies^ "+theme+" ("+strings.Join(validNotices(opts.Notices), " ")+"))")
 	return "/set-user-settings?" + values.Encode()
 }
 
@@ -170,7 +175,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(`</head><body class="`)
 	b.WriteString(escaped(bodyClass))
 	b.WriteString(` bw-tabs-nojs"><div class="main-container"><div class="fandom-community-header__background tileHorizontally header"></div><div class="page"><main class="page__main">`)
-	b.WriteString(externalWikiNotice(opts.Wiki, opts.Title))
+	b.WriteString(externalWikiNotice(opts))
 	b.WriteString(`<div class="custom-top"><h1 class="page-title">`)
 	titleBreadcrumbs(&b, opts.Title)
 	b.WriteString(`</h1><nav class="sitesearch"><form action="/`)

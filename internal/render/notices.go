@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"html"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -137,7 +138,47 @@ func groupFeedback(b *strings.Builder, group wikiGroup) {
 	noticeLink(b, "https://docs.breezewiki.com/Reporting_Bugs.html", "Feedback?", "")
 }
 
-func externalWikiNotice(wiki, title string) string {
+var noticeTokenRE = regexp.MustCompile(`^[A-Za-z0-9-]{1,50}$`)
+
+func validNotices(tokens []string) []string {
+	seen := map[string]bool{}
+	var valid []string
+	for _, token := range tokens {
+		if noticeTokenRE.MatchString(token) && !seen[token] {
+			valid = append(valid, token)
+			seen[token] = true
+		}
+	}
+	return valid
+}
+
+func noticeDismissURL(opts Options) string {
+	notices := append([]string{opts.Wiki}, opts.Notices...)
+	next := opts.CurrentURL
+	if !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		next = "/" + opts.Wiki + "/wiki/" + pathForPage(opts)
+	}
+	theme := opts.Theme
+	if theme != "light" && theme != "dark" {
+		theme = "default"
+	}
+	values := url.Values{}
+	values.Set("next_location", next)
+	values.Set("new_settings", "#s(user-cookies^ "+theme+" ("+strings.Join(validNotices(notices), " ")+"))")
+	return "/set-user-settings?" + values.Encode()
+}
+
+func noticeSeen(opts Options) bool {
+	for _, token := range opts.Notices {
+		if token == opts.Wiki {
+			return true
+		}
+	}
+	return false
+}
+
+func externalWikiNotice(opts Options) string {
+	wiki, title := opts.Wiki, opts.Title
 	info, ok := independentWikis[wiki]
 	if !ok {
 		return ""
@@ -164,7 +205,12 @@ func externalWikiNotice(wiki, title string) string {
 		groupFeedback(&b, group)
 		b.WriteString("</p></aside>")
 	default:
-		b.WriteString(`<aside class="niwa__notice"><h1 class="niwa__header">`)
+		if noticeSeen(opts) {
+			b.WriteString(`<aside class="niwa__notice niwa--seen">`)
+		} else {
+			b.WriteString(`<aside class="niwa__notice">`)
+		}
+		b.WriteString(`<h1 class="niwa__header">`)
 		b.WriteString(html.EscapeString(info.Name))
 		b.WriteString(" has its own website separate from Fandom.</h1>")
 		noticeLink(&b, goURL, "Read "+title+" on "+info.Name+" →", "niwa__go")
@@ -174,7 +220,19 @@ func externalWikiNotice(wiki, title string) string {
 		b.WriteString("<p>This wiki's core community has largely migrated away from Fandom. You should ")
 		noticeLink(&b, goURL, "go to "+info.Name+" now!", "")
 		b.WriteString(`</p><p class="niwa__feedback">`)
-		groupFeedback(&b, group)
+		for i, link := range group.links {
+			if i > 0 {
+				b.WriteString(" / ")
+			}
+			noticeLink(&b, link[1], link[0], "")
+		}
+		if len(group.links) > 0 {
+			b.WriteString(" / ")
+		}
+		b.WriteString("This notice is from BreezeWiki / ")
+		b.WriteString(`<a rel="nofollow" class="niwa__got-it" href="`)
+		b.WriteString(html.EscapeString(noticeDismissURL(opts)))
+		b.WriteString(`">OK, got it</a>`)
 		b.WriteString("</p></div>")
 		if info.Logo != nil && *info.Logo != "" {
 			b.WriteString(`<div class="niwa__right"><img class="niwa__logo" src="`)
