@@ -54,6 +54,24 @@ The Fandom HTTP transport uses browser-compatible TLS and HTTP/2 settings
 because Fandom's edge currently rejects Go's default HTTP fingerprint. Access
 may still depend on Fandom's availability and anti-bot policies.
 
+## Docker
+
+Run the published image:
+
+```sh
+docker run --rm -p 10416:10416 ghcr.io/perennialtech/breezewiki-go:latest
+```
+
+Open `http://localhost:10416`. Alternatively, use the included `compose.yaml`:
+
+```sh
+docker compose up -d
+```
+
+The container listens on all interfaces at port `10416`, uses embedded assets,
+and supports the same `BW_` environment variables as the native server. For
+example, pass `-e BW_ACCESS_LOG::ENABLED=true` to `docker run` to log requests.
+
 ## Other tools and development
 
 Run `go run ./cmd/breezewiki-wikinames` to update `wiki-names.json` from
