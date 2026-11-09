@@ -21,9 +21,7 @@ var homeTemplate = template.Must(template.New("home").Parse(`<!DOCTYPE html>
 <h2>BreezeWiki makes wiki pages on Fandom readable</h2>
 <p>It removes ads, videos, and suggested content, leaving you with a clean page that doesn't slow down your device or use up your data.</p>
 <p>To use BreezeWiki, just replace "fandom.com" with "{{.Host}}", and you'll instantly be teleported to a better world.</p>
-<p>If you'd like to be automatically sent to BreezeWiki every time in the future,
-{{if .PromoteExtension}}<a href="https://getindie.wiki">get our affiliated browser extension (NEW!)</a> or {{end}}
-<a href="https://docs.breezewiki.com/Automatic_Redirection.html">check out the tutorial in the manual.</a></p>
+<p>To be automatically redirected to BreezeWiki, <a href="https://docs.breezewiki.com/Automatic_Redirection.html">see the tutorial in the manual.</a></p>
 <p>BreezeWiki is available on several different websites called <a href="https://en.wikipedia.org/wiki/Mirror_site">mirrors</a>. Each is independently run. If one mirror is offline, the others still work. <a href="https://docs.breezewiki.com/Links.html#%28part._.Mirrors%29">See the list.</a></p>
 <h2>Find a page</h2>
 <form action="/search">
@@ -52,7 +50,6 @@ var homeTemplate = template.Must(template.New("home").Parse(`<!DOCTYPE html>
 <p><a href="https://github.com/perennialtech/breezewiki-go">{{.ApplicationName}} source code</a></p>
 <p><a href="https://docs.breezewiki.com">Documentation and more information</a></p>
 <p><a href="https://lists.sr.ht/~cadence/breezewiki-discuss">Chat / Bug reports / Feature requests</a></p>
-{{if .PromoteFooter}}<p><a href="https://getindie.wiki/">Get Indie Wiki Buddy browser extension - be redirected to BreezeWiki every time!</a></p>{{end}}
 {{if .Official}}<p>This instance is run by the {{.ApplicationName}} developer, <a href="https://cadence.moe/contact">Cadence</a>.</p>
 {{else}}<p>This unofficial instance is based off the {{.ApplicationName}} source code, but is not controlled by the code developer.</p>{{end}}
 </div><div><p>Text content on wikis run by Fandom is available under the Creative Commons Attribution-Share Alike License 3.0 (Unported), <a href="https://www.fandom.com/licensing" rel="nofollow">see license info.</a> Media files and official Fandom documents have different copying restrictions.</p>
@@ -68,15 +65,13 @@ func (s *Server) home(w http.ResponseWriter) {
 	}
 	var buf strings.Builder
 	err := homeTemplate.Execute(&buf, map[string]any{
-		"InternalCSS":      s.staticURL("internal.css"),
-		"MainCSS":          s.staticURL("main.css"),
-		"Favicon":          s.staticURL("breezewiki-favicon.svg"),
-		"Logo":             s.staticURL("breezewiki.svg"),
-		"Host":             host,
-		"ApplicationName":  s.Config.Get("application_name"),
-		"PromoteExtension": s.Config.Member("promotions::indie_wiki_buddy", "home"),
-		"PromoteFooter":    s.Config.Member("promotions::indie_wiki_buddy", "footer"),
-		"Official":         s.Config.True("instance_is_official"),
+		"InternalCSS":     s.staticURL("internal.css"),
+		"MainCSS":         s.staticURL("main.css"),
+		"Favicon":         s.staticURL("breezewiki-favicon.svg"),
+		"Logo":            s.staticURL("breezewiki.svg"),
+		"Host":            host,
+		"ApplicationName": s.Config.Get("application_name"),
+		"Official":        s.Config.True("instance_is_official"),
 	})
 	if err != nil {
 		s.internalError(w, err)

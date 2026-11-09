@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestConfiguredThemeOverridesArchivedHeadHTML(t *testing.T) {
+func TestConfiguredThemeOverridesHeadHTML(t *testing.T) {
 	for _, tc := range []struct {
 		theme, head, want, unwanted string
 	}{
@@ -13,7 +13,7 @@ func TestConfiguredThemeOverridesArchivedHeadHTML(t *testing.T) {
 		{"light", `<body class="skin-fandomdesktop theme-fandomdesktop-dark">`, `theme-fandomdesktop-light`, `theme-fandomdesktop-dark`},
 		{"dark", "", `theme-fandomdesktop-dark`, `theme-fandomdesktop-light`},
 	} {
-		out, err := Page("<p>Archive</p>", Options{Wiki: "test", Theme: tc.theme, HeadHTML: tc.head})
+		out, err := Page("<p>Article</p>", Options{Wiki: "test", Theme: tc.theme, HeadHTML: tc.head})
 		if err != nil {
 			t.Fatal(err)
 		}

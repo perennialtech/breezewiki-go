@@ -51,10 +51,6 @@ func endpoints(kind, path, query string) []endpoint {
 	return nil
 }
 func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, page, kind string) {
-	if kind == "search" && s.Config.Get("feature_offline::search") != "fandom" {
-		s.searchSolr(w, r, wiki)
-		return
-	}
 	q := requestParam(r, "q")
 	source := sourceURL(wiki, page)
 	if kind == "search" {
@@ -66,10 +62,6 @@ func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, page, kin
 	}
 	if s.Config.True("feature_jsonp::enabled") {
 		s.jsonp(w, r, wiki, page, kind, source, q)
-		return
-	}
-	if kind == "wiki" && s.Config.True("feature_offline::enabled") && s.Config.True("feature_offline::only") {
-		s.unavailable(w, r, wiki, page, source)
 		return
 	}
 	ep := endpoints(kind, page, q)
@@ -103,7 +95,7 @@ func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, page, kin
 		}
 		data[e.name] = js
 	}
-	info := s.siteInfo(r.Context(), wiki)
+	info := s.Fandom.SiteInfo(r.Context(), wiki)
 	s.renderArticle(w, r, wiki, page, kind, source, q, data, info)
 }
 

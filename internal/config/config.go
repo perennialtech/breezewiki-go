@@ -10,25 +10,17 @@ import (
 )
 
 var defaults = map[string]string{
-	"application_name":             "BreezeWiki",
-	"bind_host":                    "auto",
-	"port":                         "10416",
-	"canonical_origin":             "",
-	"debug":                        "false",
-	"feature_search_suggestions":   "true",
-	"instance_is_official":         "false",
-	"log_outgoing":                 "true",
-	"strict_proxy":                 "false",
-	"feature_offline::enabled":     "false",
-	"feature_offline::format":      "json.gz",
-	"feature_offline::only":        "false",
-	"feature_offline::search":      "fandom",
-	"feature_jsonp::enabled":       "true",
-	"captcha::enabled":             "false",
-	"captcha::log":                 "false",
-	"captcha::ip_header":           "",
-	"access_log::enabled":          "false",
-	"promotions::indie_wiki_buddy": "banner home",
+	"application_name":           "BreezeWiki",
+	"bind_host":                  "auto",
+	"port":                       "10416",
+	"canonical_origin":           "",
+	"debug":                      "false",
+	"feature_search_suggestions": "true",
+	"instance_is_official":       "false",
+	"log_outgoing":               "true",
+	"strict_proxy":               "false",
+	"feature_jsonp::enabled":     "true",
+	"access_log::enabled":        "false",
 }
 
 // Config contains the effective string values. Like upstream, every value is
@@ -50,17 +42,6 @@ func (c *Config) Get(key string) string { return c.values[strings.ToLower(key)] 
 func (c *Config) True(key string) bool {
 	v := c.Get(key)
 	return v != "" && v != "false"
-}
-func (c *Config) Member(key, item string) bool {
-	if !c.True(key) {
-		return false
-	}
-	for _, s := range strings.Fields(c.Get(key)) {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
 
 // Load reads an optional INI file, then overlays BW_ environment values.
