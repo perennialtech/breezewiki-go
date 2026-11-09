@@ -69,23 +69,23 @@ export function initSortableTables() {
 			const sort = () => {
                 for (const body of table.tBodies) {
                     const data = Array.from(body.rows).filter(row => !headers.includes(row))
-                    const top = data.filter(row => row.classList.contains("sorttop"))
-                    const bottom = data.filter(row => row.classList.contains("sortbottom"))
-                    const sortable = data.filter(row => !row.classList.contains("sorttop") && !row.classList.contains("sortbottom"))
                     const groups = []
-                    for (let start = 0; start < sortable.length;) {
+                    for (let start = 0; start < data.length;) {
                         let end = start + 1
                         for (let i = start; i < end; i++) {
-                            for (const item of sortable[i].cells) {
-                                end = Math.min(sortable.length, Math.max(end, item.rowSpan === 0 ? sortable.length : i + item.rowSpan))
+                            for (const item of data[i].cells) {
+                                end = Math.min(data.length, Math.max(end, item.rowSpan === 0 ? data.length : i + item.rowSpan))
                             }
-                            while (end < sortable.length && sortable[end].classList.contains("expand-child")) end++
+                            while (end < data.length && data[end].classList.contains("expand-child")) end++
                         }
-                        groups.push(sortable.slice(start, end))
+                        groups.push(data.slice(start, end))
                         start = end
                     }
-                    groups.sort((a,b) => compareValues(columnValue(a[0],index),columnValue(b[0],index),cell.dataset.sortType) * (ascending ? 1 : -1))
-                    for (const row of [...(body === firstBody && !table.tHead ? headers : []), ...top, ...groups.flat(), ...bottom]) body.appendChild(row)
+                    const top = groups.filter(group => group[0].classList.contains("sorttop"))
+                    const bottom = groups.filter(group => group[0].classList.contains("sortbottom"))
+                    const sortable = groups.filter(group => !group[0].classList.contains("sorttop") && !group[0].classList.contains("sortbottom"))
+                    sortable.sort((a,b) => compareValues(columnValue(a[0],index),columnValue(b[0],index),cell.dataset.sortType) * (ascending ? 1 : -1))
+                    for (const row of [...(body === firstBody && !table.tHead ? headers : []), ...top.flat(), ...sortable.flat(), ...bottom.flat()]) body.appendChild(row)
                 }
                 for (const header of leafHeaders) header.cell.setAttribute("aria-sort", "none")
                 cell.setAttribute("aria-sort", ascending ? "ascending" : "descending")
