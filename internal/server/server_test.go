@@ -174,6 +174,7 @@ func TestKnownFandomWikiAliases(t *testing.T) {
 		{"/mspa/wiki/Homestuck?oldid=99", "/mspaintadventures/wiki/Homestuck?oldid=99"},
 		{"/bfdi/wiki/Some%20Page?redirect=no", "/battlefordreamisland/wiki/Some%20Page?redirect=no"},
 		{"/b%66di/wiki/Page?oldid=99", "/battlefordreamisland/wiki/Page?oldid=99"},
+		{"/bfdi%2Fwiki%2FPage?oldid=99", "/battlefordreamisland%2Fwiki%2FPage?oldid=99"},
 		{"/mspa", "/mspaintadventures"},
 	} {
 		got := response(s, "GET", tc.path, nil, nil)

@@ -92,11 +92,15 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		if canonical != "" {
 			escaped := r.URL.EscapedPath()
 			suffix := strings.TrimPrefix(escaped, "/")
-			if i := strings.IndexByte(suffix, '/'); i >= 0 {
-				suffix = suffix[i:]
-			} else {
-				suffix = ""
+			i := 0
+			for n := 0; n < len(wiki); n++ {
+				if suffix[i] == '%' {
+					i += 3
+				} else {
+					i++
+				}
 			}
+			suffix = suffix[i:]
 			target := "/" + canonical + suffix
 			if r.URL.RawQuery != "" {
 				target += "?" + r.URL.RawQuery
