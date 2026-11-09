@@ -1,4 +1,4 @@
-import {h, htm, render, signal, effect} from "preact"
+import {h, htm, render, signal, effect, useLayoutEffect, batch} from "preact"
 const html = htm.bind(h)
 const classNames = classArr => classArr.filter(el => el).join(" ")
 
@@ -13,6 +13,8 @@ const focus = signal(false)
 const st = signal("ready")
 const suggestions = signal([])
 let pendingEnter = false
+const selectedIndex = signal(-1)
+let focusAfterUpdate = null
 
 // processing functions
 
@@ -33,36 +35,45 @@ function fetchSuggestions(query) {
 			title: root[1][i],
 			url: root[3][i]
 		}))
-	}).catch(() => {
-		return null
-	})
-	hitsPromise.set(query, promise)
+    }).catch(() => null)
+    hitsPromise.set(query, promise)
 	return promise
+}
+
+function suggestionURL(hit) {
+    const url = new URL(hit.url)
+    const locale = BWData.lang && url.pathname.startsWith("/wiki/") ? `/${BWData.lang}` : ""
+    return `/${BWData.wikiname}${locale}${url.pathname}${url.search}${url.hash}`
 }
 
 function acceptSuggestion(hit) {
 	st.value = "accepted"
 	query.value = hit.title
-	const dest = new URL(hit.url).pathname
-	location = `/${BWData.wikiname}${BWData.lang && dest.startsWith("/wiki/") ? `/${BWData.lang}` : ""}${dest}`
+	location = suggestionURL(hit)
 }
 
 // suggestion list view
 
-function Suggestion(hit) {
-	return html`<li class="bw-ss__item"><button type="button" class="bw-ss__button" onClick=${() => acceptSuggestion(hit)}>${hit.title}</button></li>`
+function Suggestion({index, ...hit}) {
+    return html`<li class="bw-ss__item"><a class=${classNames(["bw-ss__button", selectedIndex.value === index && "bw-ss__button--selected"])} href=${suggestionURL(hit)} onFocus=${() => selectedIndex.value = index}>${hit.title}</a></li>`
 }
 
 function DefaultSearch({q}) {
-	if (!q) return ""
-	return html`<li class="bw-ss__item"><button type="submit" class="bw-ss__button">Results for "${q}"</button></li>`
+    useLayoutEffect(() => {
+        if (focusAfterUpdate === null) return
+        const index = focusAfterUpdate
+        focusAfterUpdate = null
+        eSuggestions.querySelectorAll(".bw-ss__button")[index]?.focus()
+    })
+    if (!q) return ""
+	return html`<li class="bw-ss__item"><button type="submit" onFocus=${() => selectedIndex.value = suggestions.value.length} class=${classNames(["bw-ss__button", selectedIndex.value === suggestions.value.length && "bw-ss__button--selected"])}>Results for "${q}"</button></li>`
 }
 
 function SuggestionList() {
 	return html`
 <ul class=${classNames(["bw-ss__list", focus.value && "bw-ss__list--focus", `bw-ss__list--${st.value}`])}>
-	${suggestions.value.map(hit => html`<${Suggestion} ...${hit} />`)}
-	<${DefaultSearch} q=${query.value} />
+	${suggestions.value.map((hit, index) => html`<${Suggestion} key=${hit.url || hit.title} ...${hit} index=${index} />`)}
+	<${DefaultSearch} key="default-search" q=${query.value} />
 </ul>`
 }
 
@@ -71,47 +82,81 @@ render(html`<${SuggestionList} />`, eSuggestions)
 // input view
 
 effect(() => {
-	query.value // dependency should always be tracked
-	if (st.peek() === "accepted") return // lock results from changing during navigation
-	st.value = "loading"
-	const requested = query.value
-	fetchSuggestions(requested).then(res => {
-		if (requested !== query.value) return
-		suggestions.value = res ?? []
-		st.value = "ready"
-		if (pendingEnter) {
-			pendingEnter = false
-			if (res?.length) acceptSuggestion(res[0])
-			else eForm.requestSubmit()
-		}
-	})
+    const requested = query.value
+    if (st.peek() === "accepted") return
+    st.value = "loading"
+    fetchSuggestions(requested).then(res => {
+        if (requested !== query.value) return
+        const results = res ?? []
+        const focused = eSuggestions.querySelector(".bw-ss__button:focus")
+        if (focused) {
+            const href = focused.getAttribute("href")
+            let index = href === null ? results.length : results.findIndex(hit => suggestionURL(hit) === href)
+            if (index < 0) index = Math.min(Math.max(selectedIndex.peek(), 0), results.length)
+            focusAfterUpdate = index
+            batch(() => {
+                suggestions.value = results
+                selectedIndex.value = index
+            })
+        } else {
+            suggestions.value = results
+        }
+        st.value = "ready"
+        if (pendingEnter) {
+            pendingEnter = false
+            if (results.length) acceptSuggestion(results[0])
+            else eForm.requestSubmit()
+        }
+    })
 })
 
 window.addEventListener("pageshow", event => {
-	if (!event.persisted) return
-	pendingEnter = false
-	st.value = "ready" // unlock results from changing after returning to page
+    if (!event.persisted) return
+    pendingEnter = false
+    st.value = "ready"
 })
 
-function onSearchKeyDown(e) {
-	if (e.key !== "Enter") return
-	if (st.value === "accepted") {
-		e.preventDefault()
-	} else if (st.value === "loading") {
-		e.preventDefault()
-		pendingEnter = true
-	} else if (suggestions.value.length) {
-		e.preventDefault()
-		acceptSuggestion(suggestions.value[0])
-	}
+function onSearchKeyDown(event) {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        pendingEnter = false
+        if (st.value !== "ready" || !query.value) return
+        event.preventDefault()
+        const options = suggestions.value.length + 1
+        selectedIndex.value = event.key === "ArrowDown"
+            ? (selectedIndex.value + 1) % (options + 1)
+            : (selectedIndex.value === -1 ? options - 1 : selectedIndex.value - 1)
+        if (selectedIndex.value === options) selectedIndex.value = -1
+        if (event.target !== eInput.querySelector("input")) {
+            const entries = eSuggestions.querySelectorAll(".bw-ss__button")
+            const next = selectedIndex.value === -1 ? eInput.querySelector("input") : entries[selectedIndex.value]
+            next?.focus()
+        }
+        return
+    }
+    if (event.key !== "Enter" || event.target.closest("a, button[type=submit]")) return
+    if (st.value === "accepted") {
+        event.preventDefault()
+    } else if (st.value === "loading") {
+        event.preventDefault()
+        pendingEnter = true
+    } else if (selectedIndex.value >= 0) {
+        if (selectedIndex.value < suggestions.value.length) {
+            event.preventDefault()
+            acceptSuggestion(suggestions.value[selectedIndex.value])
+        }
+    } else if (suggestions.value.length) {
+        event.preventDefault()
+        acceptSuggestion(suggestions.value[0])
+    }
 }
 
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { pendingEnter = false; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { pendingEnter = false; selectedIndex.value = -1; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)
+eSuggestions.addEventListener("keydown", onSearchKeyDown)
 
 // form focus
 

@@ -1,5 +1,10 @@
 services:
   breezewiki-go:
     image: ghcr.io/perennialtech/breezewiki-go:latest
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "10416:10416"
