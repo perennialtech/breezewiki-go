@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -213,5 +214,37 @@ func TestFileLatestUploadDate(t *testing.T) {
 	got := response(s, "GET", "/test/wiki/File:File.png", nil, nil)
 	if got.Code != 200 || !strings.Contains(got.Body.String(), `<time datetime="2016-12-13T10:30:04Z">2016-12-13</time>`) {
 		t.Fatalf("file upload date missing: %d; present %v", got.Code, strings.Contains(got.Body.String(), "2016-12-13"))
+	}
+}
+
+func TestSearchRequestsMoreThanTenResults(t *testing.T) {
+	var requestedLimit string
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("meta") == "siteinfo" {
+			upstreamAPI(w, r)
+			return
+		}
+		requestedLimit = r.URL.Query().Get("srlimit")
+		count := 10
+		if requestedLimit == "50" {
+			count = 16
+		}
+		results := make([]map[string]any, count)
+		for i := range results {
+			results[i] = map[string]any{"title": fmt.Sprintf("Result %d", i+1), "timestamp": "2026-11-09T00:00:00Z", "wordcount": 1, "size": 100}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"query": map[string]any{"search": results}})
+	})
+	got := response(s, "GET", "/test/search?q=example", nil, nil)
+	if got.Code != 200 || requestedLimit != "50" || !strings.Contains(got.Body.String(), "Result 16") || !strings.Contains(got.Body.String(), "16 results found") {
+		t.Fatalf("limit %q, status %d: %s", requestedLimit, got.Code, got.Body.String())
+	}
+}
+
+func TestSearchJSONPRequestsMoreThanTenResults(t *testing.T) {
+	s, _ := mockServer(t, nil, upstreamAPI)
+	got := response(s, "GET", "/test/search?q=example", nil, nil)
+	if got.Code != 200 || !strings.Contains(got.Body.String(), "srlimit=50") {
+		t.Fatalf("JSONP search limit missing: %d %s", got.Code, got.Body.String())
 	}
 }

@@ -204,7 +204,9 @@ func Page(content string, opts Options) (string, error) {
 	}
 	b.WriteString(`<div class="custom-top"><h1 class="page-title">`)
 	titleBreadcrumbs(&b, opts.Title)
-	b.WriteString(`</h1><nav class="sitesearch"><form action="/`)
+	b.WriteString(`</h1><nav class="sitesearch"><a href="/`)
+	b.WriteString(escaped(opts.Wiki))
+	b.WriteString(`/">Wiki home</a><form action="/`)
 	b.WriteString(escaped(opts.Wiki))
 	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
 	for _, t := range []string{"default", "light", "dark"} {

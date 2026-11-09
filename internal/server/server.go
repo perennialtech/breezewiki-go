@@ -205,9 +205,10 @@ func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, title, sou
 		s.internalError(w, err)
 		return
 	}
-	if r.URL.Query().Get("redirect") != "no" {
+	if r.Method != http.MethodPost && r.URL.Query().Get("redirect") != "no" {
 		if m := redirectMessage.FindStringSubmatch(out); m != nil {
-			w.Header().Set("Refresh", "0;url="+html.UnescapeString(m[1]))
+			s.redirect(w, html.UnescapeString(m[1]))
+			return
 		}
 	}
 	s.html(w, 200, out)
