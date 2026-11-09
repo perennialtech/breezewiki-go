@@ -86,14 +86,14 @@ export function initSortableTables() {
                     const bottom = groups.filter(group => group[0].classList.contains("sortbottom"))
                     const sortable = groups.filter(group => !group[0].classList.contains("sorttop") && !group[0].classList.contains("sortbottom"))
                     sortable.sort((a,b) => compareValues(columnValue(a[0],index),columnValue(b[0],index),cell.dataset.sortType) * (ascending ? 1 : -1))
-                    for (const row of [...(body === firstBody && !table.tHead ? headers : []), ...top.flat(), ...sortable.flat(), ...bottom.flat()]) body.appendChild(row)
+                    for (const row of [...top.flat(), ...sortable.flat(), ...bottom.flat()]) body.appendChild(row)
                 }
                 for (const header of leafHeaders) header.cell.setAttribute("aria-sort", "none")
                 cell.setAttribute("aria-sort", ascending ? "ascending" : "descending")
                 ascending = !ascending
             }
             cell.addEventListener("click", event => {
-                if (event.target.closest("a, button, input, select, textarea")) return
+                if (event.target.closest("a, button, input, select, textarea, label")) return
                 sort()
             })
 			cell.addEventListener("keydown", event => {
