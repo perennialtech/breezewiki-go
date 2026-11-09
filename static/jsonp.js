@@ -131,7 +131,7 @@ function error(data) {
 	if (typeof data === "string") {
 		render(html`<p><strong>BreezeWiki ran into an error on this page.</strong></p><p>Try reloading the page.</p><p>If this keeps happening, you could <a href="mailto:~cadence/breezewiki-discuss@lists.sr.ht">send a public bug report</a>. Please include the following information:</p><pre>URL: ${window.location.href}${"\n"}${data}</pre>`, eContent)
 	} else if (data.error.code === "missingtitle") {
-		render(html`<p><strong>This page doesn't exist on Fandom.</strong></p><p><small><a href="/${BWData.wikiname}${BWData.lang ? `/${BWData.lang}` : ""}/wiki/Main_Page">Return to the wiki's main page</a></small></p>`, eContent)
+		render(html`<p><strong>This page doesn't exist on Fandom.</strong></p><p><small><a href="/${BWData.wikiname}${BWData.lang ? `/${BWData.lang}` : ""}/wiki">Return to the wiki's main page</a></small></p>`, eContent)
 	} else {
 		render(html`<p>BreezeWiki wasn't able to load this page.</p><p><strong>${data.error.code}: ${data.error.info}</strong></p>`, eContent)
 	}

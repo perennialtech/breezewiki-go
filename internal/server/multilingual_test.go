@@ -104,3 +104,11 @@ func TestMultilingualJSONP(t *testing.T) {
 		t.Fatalf("language JSONP POST: %d", result.Code)
 	}
 }
+
+func TestLocalizedCanonicalURLPreservesEncodedTitle(t *testing.T) {
+	s, _ := mockServer(t, map[string]string{"canonical_origin": "https://mirror.example", "feature_jsonp::enabled": "false"}, upstreamAPI)
+	got := response(s, "GET", "/mlp/es/wiki/What%3F", nil, nil)
+	if got.Code != 200 || !strings.Contains(got.Body.String(), `rel="canonical" href="https://mirror.example/mlp/es/wiki/What%3F"`) {
+		t.Fatalf("canonical title encoding missing: %d %s", got.Code, got.Body.String())
+	}
+}

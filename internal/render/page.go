@@ -15,6 +15,7 @@ import (
 // license fields from the MediaWiki siteinfo response.
 type Options struct {
 	Wiki, Lang, Title, SourceURL, CanonicalOrigin, ApplicationName, Theme, SiteName, Path, HeadHTML string
+	EscapedPath                                                                                     string
 	SiteInfo                                                                                        map[string]any
 	Notices                                                                                         []string
 	CurrentURL                                                                                      string
@@ -198,7 +199,10 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(escaped(favicon))
 	b.WriteString(`">`)
 	if opts.CanonicalOrigin != "" {
-		canonicalPath := opts.Path
+		canonicalPath := opts.EscapedPath
+		if canonicalPath == "" {
+			canonicalPath = opts.Path
+		}
 		if !strings.HasPrefix(canonicalPath, "/"+opts.Wiki+"/") {
 			canonicalPath = "/" + opts.Wiki
 			if opts.Lang != "" {

@@ -224,7 +224,7 @@ func (s *Server) pageHTML(r *http.Request, wiki, lang, title, source, content, h
 	origin := s.Config.Get("canonical_origin")
 	out, err := render.Page(content, render.Options{Wiki: wiki, Lang: lang, Title: title, SourceURL: source,
 		CanonicalOrigin: origin, ApplicationName: s.Config.Get("application_name"),
-		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path,
+		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path, EscapedPath: r.URL.EscapedPath(),
 		CurrentURL: r.URL.RequestURI(), Notices: notices(r),
 		ExternalNoticeHTML:       s.genericNotice(r.Context(), wiki, title),
 		DisableSearchSuggestions: !s.Config.True("feature_search_suggestions"),
