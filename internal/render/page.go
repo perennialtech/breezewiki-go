@@ -177,7 +177,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString("</script><script type=\"importmap\">")
 	b.Write(imports)
 	b.WriteString("</script>")
-	scripts := []string{"countdown.js", "tabs.js"}
+	scripts := []string{"countdown.js", "tabs.js", "sortable.js"}
 	if !opts.DisableSearchSuggestions {
 		scripts = append([]string{"search-suggestions.js"}, scripts...)
 	}
