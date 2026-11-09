@@ -132,7 +132,7 @@ function onSearchKeyDown(event) {
         }
         return
     }
-    if (event.key !== "Enter" || event.target.closest("a")) return
+    if (event.key !== "Enter" || event.target.closest("a, button[type=submit]")) return
     if (st.value === "accepted") {
         event.preventDefault()
     } else if (st.value === "loading") {

@@ -336,7 +336,7 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
 .bw-ss__item {
     display: grid; /* make buttons take the full size */
 }
-.bw-ss__button:hover, .bw-ss__button:focus, .bw-ss__button--selected {
+.bw-ss__button:hover, .bw-ss__button:focus, .bw-ss__button.bw-ss__button--selected {
     background-color: #ddd;
 }
 .bw-ss__button {
