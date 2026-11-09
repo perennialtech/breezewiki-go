@@ -19,7 +19,7 @@ func TestGenericIndependentWikiNotice(t *testing.T) {
 		t.Fatalf("content %+v", contents)
 	}
 	page := renderGenericNotice(genericWiki{"Example Wiki", "", "https://example.org/wiki/Special:Search"}, "Bricks & Sand", contents)
-	for _, want := range []string{"Bricks &amp; Sand", "Bricks+%26+Sand", "Official homepage", `https://example.org/logo.svg`, "has its own website"} {
+	for _, want := range []string{"Bricks &amp; Sand", "Bricks+%26+Sand", "Official homepage", `https://example.org/logo.svg`, "has its own website", `<div class="niwa__summary">`, `<details class="niwa__details"><summary>More information</summary>`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("notice missing %q", want)
 		}

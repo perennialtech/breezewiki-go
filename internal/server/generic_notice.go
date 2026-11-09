@@ -166,15 +166,15 @@ func renderGenericNotice(spec genericWiki, title string, content genericWikiCont
 	query.Set("go", "Go")
 	search := spec.Search + "?" + query.Encode()
 	var b strings.Builder
-	b.WriteString(`<aside class="niwa__notice"><h1 class="niwa__header">`)
+	b.WriteString(`<aside class="niwa__notice"><div class="niwa__summary"><strong class="niwa__header">`)
 	b.WriteString(html.EscapeString(spec.Name))
-	b.WriteString(` has its own website separate from Fandom.</h1><div class="niwa__cols"><div class="niwa__left"><a class="niwa__go" href="`)
+	b.WriteString(` has its own website separate from Fandom.</strong><a class="niwa__go" href="`)
 	b.WriteString(html.EscapeString(search))
 	b.WriteString(`">Read `)
 	b.WriteString(html.EscapeString(title))
 	b.WriteString(` on `)
 	b.WriteString(html.EscapeString(spec.Name))
-	b.WriteString(` →</a>`)
+	b.WriteString(` →</a></div><details class="niwa__details"><summary>More information</summary><div class="niwa__cols"><div class="niwa__left">`)
 	for _, para := range content.Paragraphs {
 		b.WriteString(para)
 	}
@@ -210,6 +210,6 @@ func renderGenericNotice(spec genericWiki, title string, content genericWikiCont
 		}
 		b.WriteString(`</ul>`)
 	}
-	b.WriteString(`</aside>`)
+	b.WriteString(`</details></aside>`)
 	return b.String()
 }
