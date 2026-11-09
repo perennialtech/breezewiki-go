@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/perennialtech/breezewiki-go/internal/fandom"
 )
 
@@ -45,12 +46,13 @@ func endpoints(kind, path, query string) []endpoint {
 			{"pagedata", parseEndpoint(path, "").params},
 		}
 	case "file":
-		return []endpoint{
-			parseEndpoint(path, "sections"),
-			{"imageinfo", []fandom.Param{param("action", "query"), param("titles", path),
-				param("prop", "imageinfo|fileusage"), param("iiprop", "timestamp|user|canonicaltitle|url|size|mime|mediatype"),
-				param("iilocalonly", "true"), param("format", "json"), param("formatversion", "2")}},
+		params := []fandom.Param{param("action", "query"), param("titles", path),
+			param("prop", "imageinfo|fileusage"), param("iiprop", "timestamp|user|canonicaltitle|url|size|mime|mediatype"),
+			param("iilocalonly", "true"), param("fulimit", "max"), param("format", "json"), param("formatversion", "2")}
+		if query != "" {
+			params = append(params, param("fucontinue", query))
 		}
+		return []endpoint{parseEndpoint(path, "sections"), {"imageinfo", params}}
 	case "search":
 		return []endpoint{
 			{"search", []fandom.Param{param("action", "query"), param("list", "search"), param("srsearch", query), param("srlimit", "50"), param("formatversion", "2"), param("format", "json")}},
@@ -60,7 +62,7 @@ func endpoints(kind, path, query string) []endpoint {
 }
 func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind string) {
 	q := requestParam(r, "q")
-	if kind == "allpages" {
+	if kind == "allpages" || kind == "file" {
 		q = requestParam(r, "from")
 	}
 	source := sourceURL(wiki, lang, page)
@@ -225,8 +227,12 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 			b.WriteString("<video src=\"" + quote(display) + "\" controls></video>")
 		}
 		b.WriteString("<p><a href=\"" + quote(display) + "\">Download original file</a></p>")
-		if len(asList(fandom.Value(p, "parse", "sections"))) > 0 {
-			b.WriteString(fandom.ParseText(p))
+		description := fandom.ParseText(p)
+		doc, err := goquery.NewDocumentFromReader(strings.NewReader(description))
+		if len(asList(fandom.Value(p, "parse", "sections"))) > 0 ||
+			err == nil && (strings.TrimSpace(doc.Find(".mw-parser-output").Text()) != "" ||
+				doc.Find(".mw-parser-output img, .mw-parser-output video, .mw-parser-output audio, .mw-parser-output iframe").Length() > 0) {
+			b.WriteString(description)
 		} else {
 			b.WriteString("<p>This file may be copyrighted. Consider licensing and fair use law before reusing it.</p>")
 		}
@@ -235,6 +241,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 		if timestamp := fandom.String(img, "timestamp"); timestamp != "" {
 			b.WriteString("<p>Latest upload: <time datetime=\"" + quote(timestamp) + "\">" + quote(strings.SplitN(timestamp, "T", 2)[0]) + "</time>.</p>")
 		}
+		next := fandom.String(data["imageinfo"], "continue", "fucontinue")
 		if len(usage) > 0 {
 			b.WriteString("<p>This file is used in ")
 			for i, v := range usage {
@@ -244,12 +251,10 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 				t := fandom.String(v, "title")
 				b.WriteString("<a href=\"" + quote(linkTo(wiki, lang, t)) + "\">" + quote(t) + "</a>")
 			}
-			if fandom.Value(data["imageinfo"], "continue", "fucontinue") != nil {
-				b.WriteString("…")
-			} else {
-				b.WriteString(".")
-			}
-			b.WriteString("</p>")
+			b.WriteString(".</p>")
+		}
+		if next != "" {
+			b.WriteString(`<p><a href="` + quote(linkTo(wiki, lang, page)+"?from="+url.QueryEscape(next)) + `">More file uses</a></p>`)
 		}
 		content = b.String()
 	case "search":
