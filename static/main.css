@@ -117,8 +117,15 @@ p {
     margin: 5vw;
 }
 .page__main {
+    box-sizing: border-box;
+    max-width: 80rem;
+    min-width: 0;
+    margin-inline: auto;
     background-color: var(--theme-page-background-color);
     padding: 3vw;
+}
+#mw-content-text {
+    min-width: 0;
 }
 .fandom-community-header__background {
     transform: none; /* fandom offsets this 46px by default due to their position: fixed top bar */
@@ -166,7 +173,13 @@ img {
 
 /* allow tables to scroll horizontally if needed */
 .table-scroller {
-    overflow: auto;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-gutter: stable;
+    overscroll-behavior-x: contain;
+}
+.table-scroller > table {
+    min-width: 100%;
 }
 
 /* float right. reorganised from their sheet */

@@ -244,9 +244,9 @@ func rewriteElement(n *html.Node, wiki string, strict, withoutCard bool) *html.N
 			out.AppendChild(externalLinkIcon())
 		}
 	}
-	if n.Data == "table" && hasClass(n, "wikitable") {
+	if n.Data == "table" && (hasClass(n, "wikitable") || hasClass(n, "va-table")) {
 		if _, ok := getAttr(n, "data-scrolling"); !ok {
-			wrap := element("div", attr("class", "table-scroller"))
+			wrap := element("div", attr("class", "table-scroller"), attr("role", "region"), attr("aria-label", "Scrollable table"), attr("tabindex", "0"))
 			wrap.AppendChild(out)
 			return wrap
 		}
