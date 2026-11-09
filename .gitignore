@@ -1,6 +1,4 @@
 config.ini
-storage/
 /breezewiki
 
 wiki-names.json
-/cache.rkt
