@@ -90,7 +90,18 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			canonical = "mspaintadventures"
 		}
 		if canonical != "" {
-			s.redirect(w, "/"+canonical+strings.TrimPrefix(r.URL.RequestURI(), "/"+wiki))
+			escaped := r.URL.EscapedPath()
+			suffix := strings.TrimPrefix(escaped, "/")
+			if i := strings.IndexByte(suffix, '/'); i >= 0 {
+				suffix = suffix[i:]
+			} else {
+				suffix = ""
+			}
+			target := "/" + canonical + suffix
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			s.redirect(w, target)
 			return
 		}
 		switch {
