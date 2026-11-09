@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -51,5 +52,14 @@ func TestInvalidINI(t *testing.T) {
 	}
 	if _, err := Load(file); err == nil {
 		t.Fatal("expected syntax error")
+	}
+}
+
+func TestHelpListsEveryDefault(t *testing.T) {
+	help := Help()
+	for _, opt := range options {
+		if opt.description == "" || !strings.Contains(help, opt.key+" (default: ") {
+			t.Errorf("setting %q missing description or default", opt.key)
+		}
 	}
 }
