@@ -203,6 +203,20 @@ func TestStrictProxyPage(t *testing.T) {
 	}
 }
 
+func TestFileLatestUploadDate(t *testing.T) {
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("prop") != "imageinfo|fileusage" {
+			upstreamAPI(w, r)
+			return
+		}
+		_, _ = io.WriteString(w, `{"query":{"pages":[{"imageinfo":[{"mediatype":"BITMAP","url":"https://static.wikia.nocookie.net/warframe/images/b/b8/File.png","user":"Shrddr","timestamp":"2016-12-13T10:30:04Z"}]}]}}`)
+	})
+	got := response(s, "GET", "/test/wiki/File:File.png", nil, nil)
+	if got.Code != 200 || !strings.Contains(got.Body.String(), `<time datetime="2016-12-13T10:30:04Z">2016-12-13</time>`) {
+		t.Fatalf("file upload date missing: %d; present %v", got.Code, strings.Contains(got.Body.String(), "2016-12-13"))
+	}
+}
+
 func TestSearchRequestsMoreThanTenResults(t *testing.T) {
 	var requestedLimit string
 	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
