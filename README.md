@@ -80,7 +80,7 @@ those are not new features of the Go rewrite.
 | Area | breezewiki-go | Original BreezeWiki |
 | --- | --- | --- |
 | Deployment | Compiled Go executable with embedded static assets; Docker/Compose and published `linux/amd64` and `linux/arm64` images | Racket runtime and packages; static assets served from the source tree |
-| Discussions | Read-only public article comments, including replies and pagination | No article comments viewer |
+| Discussions | Read-only article comments viewer with replies and pagination, subject to Fandom endpoint availability | No article comments viewer |
 | Navigation | Language-prefixed wiki routes, localized namespace aliases, `Special:Random` and paginated `Special:AllPages`; sortable wiki tables | Unprefixed wiki routes; no dedicated implementations of those special pages or bundled table sorting |
 | Search and files | Requests up to 50 Fandom search results; displays file upload dates and links to additional file-usage results | Uses the API's default search result limit; further file uses are indicated with an ellipsis |
 | Page layout | Bounded article width, horizontally scrollable wide tables, and compact independent-wiki notices | No article width cap; larger independent-wiki notices |
