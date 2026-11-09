@@ -134,6 +134,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			}
 			s.article(w, r, wiki, lang, page, kind)
 			return
+		case rest == "comments":
+			s.comments(w, r, wiki)
+			return
 		case rest == "search":
 			s.article(w, r, wiki, lang, "", "search")
 			return

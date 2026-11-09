@@ -168,7 +168,7 @@ func TestWholeNodeReplacements(t *testing.T) {
 		<a class="external" href="https://example.org">External</a>
 		<a class="extiw" href="https://en.wikipedia.org/wiki/Test">Wikipedia</a>
 	</div>`)
-	requireContains(t, got, `<div class="table-scroller"><table class="wikitable" data-scrolling=""`, `Already wrapped`,
+	requireContains(t, got, `<div class="table-scroller" role="region" aria-label="Scrollable table" tabindex="0"><table class="wikitable" data-scrolling=""`, `Already wrapped`,
 		`<a class="iframe-alternative" href="https://example.com/iframe-src">Embedded media: https://example.com/iframe-src</a>`,
 		`Caption kept`, `<template></template>`, `<svg fill="currentColor"`)
 	requireAbsent(t, got, `<iframe`, `<noscript`, "Ads", "AI quick answers", "Edit", "Toggle", "Video", "Only text")
@@ -393,4 +393,9 @@ func TestLocalizedWikiHomeNavigation(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireContains(t, out, `<a href="/mlp/es/wiki">Wiki home</a>`)
+}
+
+func TestWideTableKeyboardScrolling(t *testing.T) {
+	got := mustRewrite(t, `<table class="va-table"><tr><th>Long heading</th></tr><tr><td>Large table</td></tr></table>`)
+	requireContains(t, got, `<div class="table-scroller" role="region" aria-label="Scrollable table" tabindex="0"><table class="va-table"`)
 }

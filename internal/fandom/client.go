@@ -60,16 +60,28 @@ func (r Response) JSON() (map[string]any, error) {
 	return data, nil
 }
 func (c *Client) Get(ctx context.Context, wiki, path, theme string) (Response, error) {
+	return c.get(ctx, wiki, path, theme, true)
+}
+
+// GetWithoutDenyCache fetches optional upstream data without allowing its
+// failure to block ordinary MediaWiki article requests.
+func (c *Client) GetWithoutDenyCache(ctx context.Context, wiki, path, theme string) (Response, error) {
+	return c.get(ctx, wiki, path, theme, false)
+}
+
+func (c *Client) get(ctx context.Context, wiki, path, theme string, trackDenied bool) (Response, error) {
 	if !ValidWiki(wiki) {
 		return Response{}, fmt.Errorf("invalid wiki %q", wiki)
 	}
-	c.mu.Lock()
-	if time.Now().Before(c.deniedUntil) {
-		r := Response{Status: c.deniedStatus, Body: append([]byte(nil), c.deniedBody...)}
+	if trackDenied {
+		c.mu.Lock()
+		if time.Now().Before(c.deniedUntil) {
+			r := Response{Status: c.deniedStatus, Body: append([]byte(nil), c.deniedBody...)}
+			c.mu.Unlock()
+			return r, nil
+		}
 		c.mu.Unlock()
-		return r, nil
 	}
-	c.mu.Unlock()
 	origin := c.Origin(wiki)
 	u, err := url.Parse(origin + path)
 	if err != nil {
@@ -100,7 +112,7 @@ func (c *Client) Get(ctx context.Context, wiki, path, theme string) (Response, e
 		return Response{}, err
 	}
 	r := Response{Status: res.StatusCode, Body: body, Header: res.Header.Clone()}
-	if r.Status == 403 || r.Status == 406 {
+	if trackDenied && (r.Status == 403 || r.Status == 406) {
 		c.mu.Lock()
 		c.deniedUntil = time.Now().Add(30 * time.Second)
 		c.deniedStatus = r.Status

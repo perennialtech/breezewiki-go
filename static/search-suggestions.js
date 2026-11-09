@@ -1,4 +1,4 @@
-import {h, htm, render, signal, computed, effect, useSignalEffect} from "preact"
+import {h, htm, render, signal, effect} from "preact"
 const html = htm.bind(h)
 const classNames = classArr => classArr.filter(el => el).join(" ")
 
@@ -7,17 +7,16 @@ const eInput = document.getElementById("bw-pr-search-input")
 const eSuggestions = document.getElementById("bw-pr-search-suggestions")
 
 const hitsPromise = new Map()
-const hitsDone = new Set()
 
 const query = signal("")
 const focus = signal(false)
 const st = signal("ready")
 const suggestions = signal([])
-const enterWasLastKey = signal(false)
+let pendingEnter = false
 
 // processing functions
 
-function fetchSuggestions(query, setSuggestions) {
+function fetchSuggestions(query) {
 	if (query === "") query = "\0"
 	if (hitsPromise.has(query)) return hitsPromise.get(query)
 	const url = new URL(`https://${BWData.wikiname}.fandom.com${BWData.lang ? `/${BWData.lang}` : ""}/api.php`)
@@ -30,11 +29,12 @@ function fetchSuggestions(query, setSuggestions) {
 			? "/proxy?" + new URLSearchParams({dest: url})
 			: url
 	const promise = fetch(sendUrl).then(res => res.json()).then(root => {
-		hitsDone.add(query)
 		return Array(root[1].length).fill().map((_, i) => ({
 			title: root[1][i],
 			url: root[3][i]
 		}))
+	}).catch(() => {
+		return null
 	})
 	hitsPromise.set(query, promise)
 	return promise
@@ -50,12 +50,6 @@ function acceptSuggestion(hit) {
 // suggestion list view
 
 function Suggestion(hit) {
-	useSignalEffect(() => {
-		if (enterWasLastKey.value && st.value === "ready") {
-			enterWasLastKey.value.preventDefault()
-			acceptSuggestion(hit)
-		}
-	})
 	return html`<li class="bw-ss__item"><button type="button" class="bw-ss__button" onClick=${() => acceptSuggestion(hit)}>${hit.title}</button></li>`
 }
 
@@ -80,27 +74,41 @@ effect(() => {
 	query.value // dependency should always be tracked
 	if (st.peek() === "accepted") return // lock results from changing during navigation
 	st.value = "loading"
-	fetchSuggestions(query.value).then(res => {
-		suggestions.value = res
-		if (hitsDone.size === hitsPromise.size) {
-			st.value = "ready"
+	const requested = query.value
+	fetchSuggestions(requested).then(res => {
+		if (requested !== query.value) return
+		suggestions.value = res ?? []
+		st.value = "ready"
+		if (pendingEnter) {
+			pendingEnter = false
+			if (res?.length) acceptSuggestion(res[0])
+			else eForm.requestSubmit()
 		}
 	})
 })
 
-window.addEventListener("pageshow", () => {
+window.addEventListener("pageshow", event => {
+	if (!event.persisted) return
+	pendingEnter = false
 	st.value = "ready" // unlock results from changing after returning to page
 })
 
-effect(() => {
-	if (enterWasLastKey.value && (st.value === "loading" || st.value === "accepted")) {
-		enterWasLastKey.value.preventDefault() // wait for results before going
+function onSearchKeyDown(e) {
+	if (e.key !== "Enter") return
+	if (st.value === "accepted") {
+		e.preventDefault()
+	} else if (st.value === "loading") {
+		e.preventDefault()
+		pendingEnter = true
+	} else if (suggestions.value.length) {
+		e.preventDefault()
+		acceptSuggestion(suggestions.value[0])
 	}
-})
+}
 
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => query.value = e.target.value} onKeyDown=${e => enterWasLastKey.value = e.key === "Enter" && e} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { pendingEnter = false; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)
