@@ -20,6 +20,9 @@ go build -o breezewiki ./cmd/breezewiki
 ./breezewiki
 ```
 
+The complete list of supported configuration keys, descriptions, and
+defaults is available from the binary's `-help-config` option.
+
 The default port is `10416`. A `config.ini` file is optional. The server embeds
 its CSS, JavaScript, fonts, and artwork; it does not need the source checkout or
 a `static/` directory after installation. To use a custom `static/` directory,
