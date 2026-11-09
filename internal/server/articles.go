@@ -356,7 +356,7 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 	extras := map[string]string{}
 	if lang != "" && kind == "wiki" && strings.Contains(page, ":") {
 		ep[0] = parseEndpoint(page, "categories|sections")
-		for _, extra := range []endpoint{endpoints("category", page, query)[0], endpoints("file", page, query)[1]} {
+		for _, extra := range []endpoint{endpoints("category", page, query)[0], endpoints("file", page, requestParam(r, "from"))[1]} {
 			q := url.Values{}
 			for _, param := range extra.params {
 				q.Add(param.Key, param.Value)

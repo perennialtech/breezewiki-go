@@ -109,3 +109,13 @@ func TestFileUsageJSONPContinuation(t *testing.T) {
 		t.Fatalf("JSONP POST file content incomplete: HTTP %d", post.Code)
 	}
 }
+
+func TestLocalizedFileUsageJSONPContinuation(t *testing.T) {
+	s, _ := mockServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("localized JSONP GET should be browser-loaded, got %s", r.URL)
+	})
+	page := response(s, "GET", "/mlp/es/wiki/Archivo:Example.png?from=Next+Token", nil, nil)
+	if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), "fucontinue=Next+Token") {
+		t.Fatalf("localized JSONP file-use continuation lost: HTTP %d, has token %v", page.Code, strings.Contains(page.Body.String(), "fucontinue=Next+Token"))
+	}
+}
