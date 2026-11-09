@@ -91,6 +91,18 @@ func pathForPage(opts Options) string {
 	return strings.ReplaceAll(opts.Title, " ", "_")
 }
 
+func historyURL(opts Options) string {
+	path := strings.TrimPrefix(opts.Path, "/"+opts.Wiki)
+	if path == opts.Path || !strings.Contains(path, "/wiki/") {
+		return ""
+	}
+	parts := strings.Split(path, "/")
+	for i, part := range parts {
+		parts[i] = url.PathEscape(part)
+	}
+	return "https://" + opts.Wiki + ".fandom.com" + strings.Join(parts, "/") + "?action=history"
+}
+
 func themeLink(opts Options, theme string) string {
 	path := opts.CurrentURL
 	if path == "" {
@@ -207,7 +219,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(`</h1><nav class="sitesearch">`)
 	if strings.Contains(opts.Path, "/wiki/") && !strings.Contains(opts.Path, "/wiki/Special:") && opts.SourceURL != "" {
 		b.WriteString(`<a rel="nofollow" href="`)
-		b.WriteString(escaped(opts.SourceURL + "?action=history"))
+		b.WriteString(escaped(historyURL(opts)))
 		b.WriteString(`">History</a>`)
 	}
 	b.WriteString(`<form action="/`)

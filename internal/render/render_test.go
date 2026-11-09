@@ -327,3 +327,11 @@ func TestArticleHistoryLink(t *testing.T) {
 	}
 	requireAbsent(t, search, `>History</a>`)
 }
+
+func TestHistoryURLReservedArticleTitle(t *testing.T) {
+	got, err := Page("<p>Test</p>", Options{Wiki: "spongebob", Title: "Are You Happy Now?", Path: "/spongebob/wiki/Are_You_Happy_Now?", SourceURL: "https://spongebob.fandom.com/wiki/Are_You_Happy_Now?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, `href="https://spongebob.fandom.com/wiki/Are_You_Happy_Now%3F?action=history"`)
+}
