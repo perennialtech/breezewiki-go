@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/perennialtech/breezewiki-go/internal/fandomhttp"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -54,7 +56,12 @@ func Open(storage string) (*Archive, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Archive{Storage: storage, DB: db}, nil
+	client, err := fandomhttp.NewClient()
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("create Fandom HTTP client: %w", err)
+	}
+	return &Archive{Storage: storage, DB: db, Client: client}, nil
 }
 
 func (a *Archive) Close() error { return a.DB.Close() }
