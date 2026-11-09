@@ -83,6 +83,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	if m := wikiPath.FindStringSubmatch(uri); m != nil {
 		wiki, rest := m[1], m[2]
 		switch {
+		case rest == "wiki/Special:Random":
+			s.randomPage(w, r, wiki)
+			return
+		case rest == "wiki/Special:AllPages":
+			s.article(w, r, wiki, "Special:AllPages", "allpages")
+			return
 		case strings.HasPrefix(rest, "wiki/Category:") && len(rest) > len("wiki/Category:"):
 			s.article(w, r, wiki, strings.TrimPrefix(rest, "wiki/"), "category")
 			return
@@ -334,7 +340,7 @@ func linkTo(wiki, title string) string {
 func pathEscape(s string) string {
 	var b strings.Builder
 	for _, c := range []byte(s) {
-		if c <= 0x1f || c > 0x7e || strings.ContainsRune(";?`{} \"#<>", rune(c)) {
+		if c <= 0x1f || c > 0x7e || strings.ContainsRune("%;?`{} \"#<>", rune(c)) {
 			fmt.Fprintf(&b, "%%%02X", c)
 		} else {
 			b.WriteByte(c)

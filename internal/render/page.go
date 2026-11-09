@@ -226,7 +226,9 @@ func Page(content string, opts Options) (string, error) {
 	}
 	b.WriteString(`<form action="/`)
 	b.WriteString(escaped(opts.Wiki))
-	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
+	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><a href="/`)
+	b.WriteString(escaped(opts.Wiki))
+	b.WriteString(`/wiki/Special:AllPages">All pages</a><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
 	for _, t := range []string{"default", "light", "dark"} {
 		class := "bw-theme__item"
 		if t == theme {
