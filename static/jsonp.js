@@ -81,7 +81,13 @@ async function cont() {
 	xhr.addEventListener("load", () => {
 		console.log(xhr)
 		// check for errors
-		if (xhr.status === 500) return fetch(pkg.url, pkg.init).then(res => res.text()).then(error)
+		if (xhr.status === 500) {
+			return fetch(pkg.url, pkg.init)
+				.then(res => res.text())
+				.then(error)
+				.catch(() => error("HTTP 500: Could not retrieve server error details."))
+		}
+		if (xhr.status !== 200) return error(`HTTP ${xhr.status} ${xhr.statusText}`)
 		// page -> #content
 		const imported = document.importNode(xhr.responseXML.getElementById("content"), true)
 		document.getElementById("content").replaceWith(imported)
@@ -120,6 +126,7 @@ async function cont() {
 		}
 		loaded.value = true
 	})
+	xhr.addEventListener("error", () => error("The page request failed due to a network error."))
 
 	xhr.open(pkg.init.method, pkg.url)
 	xhr.responseType = "document"
