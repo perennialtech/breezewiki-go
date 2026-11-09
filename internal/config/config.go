@@ -19,7 +19,7 @@ var options = []option{
 	{"application_name", "BreezeWiki", "Name displayed in page footers and startup logs."},
 	{"bind_host", "auto", "Listening address. auto binds all interfaces, or loopback when debug is true."},
 	{"port", "10416", "TCP port for the HTTP server (1-65535)."},
-	{"canonical_origin", "", "Public URL of this instance, used for canonical links, redirects, and same-origin checks. Empty uses the incoming request origin."},
+	{"canonical_origin", "", "Public URL for canonical links and subdomain redirects. Empty disables those features; POST origin checks then use the request host."},
 	{"debug", "false", "Disable static asset caching and bind loopback when bind_host is auto."},
 	{"feature_search_suggestions", "true", "Enable the client-side Fandom search suggestion widget."},
 	{"instance_is_official", "false", "Show the original BreezeWiki developer attribution as the instance operator."},
@@ -107,6 +107,7 @@ func Load(path string) (*Config, error) {
 // Help lists supported INI settings and their effective default values.
 func Help() string {
 	var b strings.Builder
+	b.WriteString("INI settings use [section] and key = value. The names below use section::key notation for nested settings and BW_ environment overrides.\n\n")
 	for _, opt := range options {
 		fmt.Fprintf(&b, "%s (default: %q)\n  %s\n", opt.key, opt.value, opt.description)
 	}

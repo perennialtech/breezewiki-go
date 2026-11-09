@@ -57,6 +57,9 @@ func TestInvalidINI(t *testing.T) {
 
 func TestHelpListsEveryDefault(t *testing.T) {
 	help := Help()
+	if !strings.Contains(help, "INI settings use [section]") || !strings.Contains(help, "section::key") {
+		t.Error("missing section syntax explanation")
+	}
 	for _, opt := range options {
 		if opt.description == "" || !strings.Contains(help, opt.key+" (default: ") {
 			t.Errorf("setting %q missing description or default", opt.key)
