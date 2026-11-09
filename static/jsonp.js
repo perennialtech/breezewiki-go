@@ -113,8 +113,10 @@ async function cont() {
 		}
 		// redirects
 		const redirectTo = document.querySelector("#content .redirectMsg a")
-		if (redirectTo) {
-			redirectTo.click()
+		if (redirectTo && new URLSearchParams(location.search).get("redirect") !== "no") {
+			const destination = new URL(redirectTo.href, location.href)
+			if (!destination.hash) destination.hash = location.hash
+			location.assign(destination.href)
 		}
 		loaded.value = true
 	})
