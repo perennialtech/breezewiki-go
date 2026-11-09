@@ -562,3 +562,25 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
         filter: hue-rotate(360deg);
     }
 }
+
+/* Article comments */
+.bw-comments {
+    clear: both;
+    margin-block: 2em;
+    border-top: 1px solid var(--theme-page-text-color);
+}
+.bw-comments__threads, .bw-comments__replies {
+    list-style: none;
+    padding-left: 0;
+}
+.bw-comments__threads > li, .bw-comments__replies > li {
+    margin: 1em 0;
+    padding: 0.6em 0;
+    border-bottom: 1px solid var(--theme-page-text-color);
+}
+.bw-comments__replies { margin-left: 1.5em; }
+.bw-comments__meta { font-size: 0.85em; }
+.bw-comments__meta time { margin-left: 0.5em; }
+.bw-comments__body img { max-width: 100%; height: auto; }
+.bw-comments__pages { display: flex; gap: 1em; }
+.bw-comments__pages button { cursor: pointer; padding: 0.25em 0.6em; }

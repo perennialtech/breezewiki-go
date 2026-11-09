@@ -93,6 +93,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			page := strings.TrimPrefix(rest, "wiki/")
 			s.article(w, r, wiki, page, "wiki")
 			return
+		case rest == "comments":
+			s.comments(w, r, wiki)
+			return
 		case rest == "search":
 			s.article(w, r, wiki, "", "search")
 			return
