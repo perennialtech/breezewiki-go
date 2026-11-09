@@ -14,7 +14,7 @@ var styleLink = regexp.MustCompile(`<link\s+rel="stylesheet"[^>]*href="([^"]+)"[
 var iconLink = regexp.MustCompile(`<link\s+rel="icon"[^>]*href="([^"]+)"[^>]*>`)
 
 // Proxy stylesheet and icon URLs at the HTTP layer when configured.
-func (s *Server) adjustPageAssets(document string, r *http.Request, wiki string) string {
+func (s *Server) adjustPageAssets(document string, r *http.Request, wiki, lang string) string {
 	if s.Config.True("strict_proxy") {
 		document = styleLink.ReplaceAllStringFunc(document, func(tag string) string {
 			m := styleLink.FindStringSubmatch(tag)
@@ -43,7 +43,11 @@ func (s *Server) adjustPageAssets(document string, r *http.Request, wiki string)
 	// render.Options.Path is the local path used by theme links; the JS payload
 	// instead requires the title/path sent to Fandom.
 	var remotePath string
-	prefix := "/" + wiki + "/wiki/"
+	prefix := "/" + wiki
+	if lang != "" {
+		prefix += "/" + lang
+	}
+	prefix += "/wiki/"
 	if strings.HasPrefix(r.URL.Path, prefix) {
 		remotePath = strings.TrimPrefix(r.URL.Path, prefix)
 	} else if strings.HasSuffix(r.URL.Path, "/search") {

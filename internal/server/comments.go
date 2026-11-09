@@ -144,12 +144,16 @@ func writeComment(b *strings.Builder, post commentPost, strictProxy bool) {
 	b.WriteString(`</div></div>`)
 }
 
-func commentsPlaceholder(wiki, title string) string {
-	target := "/" + wiki + "/comments?title=" + url.QueryEscape(title)
+func commentsPlaceholder(wiki, lang, title string) string {
+	target := "/" + wiki
+	if lang != "" {
+		target += "/" + lang
+	}
+	target += "/comments?title=" + url.QueryEscape(title)
 	return `<section id="comments" class="bw-comments" data-comments-url="` + html.EscapeString(target) + `"><h2>Comments</h2><div class="bw-comments__results">Loading comments…</div></section>`
 }
 
-func (s *Server) comments(w http.ResponseWriter, r *http.Request, wiki string) {
+func (s *Server) comments(w http.ResponseWriter, r *http.Request, wiki, lang string) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -174,7 +178,11 @@ func (s *Server) comments(w http.ResponseWriter, r *http.Request, wiki string) {
 	q.Set("title", title)
 	q.Set("namespace", "0")
 	q.Set("page", strconv.Itoa(page))
-	result, err := s.Fandom.GetWithoutDenyCache(r.Context(), wiki, "/wikia.php?"+q.Encode(), "")
+	resource := "/wikia.php?" + q.Encode()
+	if lang != "" {
+		resource = "/" + lang + resource
+	}
+	result, err := s.Fandom.GetWithoutDenyCache(r.Context(), wiki, resource, "")
 	if err != nil || result.Status != http.StatusOK {
 		http.Error(w, "Comments are unavailable", http.StatusBadGateway)
 		return

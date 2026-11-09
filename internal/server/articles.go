@@ -58,27 +58,27 @@ func endpoints(kind, path, query string) []endpoint {
 	}
 	return nil
 }
-func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, page, kind string) {
+func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind string) {
 	q := requestParam(r, "q")
 	if kind == "allpages" {
 		q = requestParam(r, "from")
 	}
-	source := sourceURL(wiki, page)
+	source := sourceURL(wiki, lang, page)
 	if kind == "search" {
-		source = sourceURL(wiki, "Special:Search?query="+url.QueryEscape(q)+"&search=internal")
+		source = sourceURL(wiki, lang, "Special:Search") + "?query=" + url.QueryEscape(q) + "&search=internal"
 	}
 	if r.Method == "POST" {
-		s.postArticle(w, r, wiki, page, kind, source, q)
+		s.postArticle(w, r, wiki, lang, page, kind, source, q)
 		return
 	}
 	if s.Config.True("feature_jsonp::enabled") {
-		s.jsonp(w, r, wiki, page, kind, source, q)
+		s.jsonp(w, r, wiki, lang, page, kind, source, q)
 		return
 	}
 	ep := endpoints(kind, page, q)
 	data := make(map[string]map[string]any, len(ep))
 	for _, e := range ep {
-		res, err := s.Fandom.API(r.Context(), wiki, e.params, theme(r))
+		res, err := s.Fandom.API(r.Context(), wiki, lang, e.params, theme(r))
 		if err != nil {
 			s.internalError(w, wrapError("Fandom "+e.name, err))
 			return
@@ -89,7 +89,7 @@ func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, page, kin
 			s.notFound(w, r)
 			return
 		case 403, 406:
-			s.fandomDenied(w, r, wiki, page, source)
+			s.fandomDenied(w, r, wiki, lang, page, source)
 			return
 		default:
 			s.internalError(w, fmt.Errorf("Fandom returned %d on %s/%s: %s", res.Status, wiki, page, res.Body))
@@ -106,11 +106,11 @@ func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, page, kin
 		}
 		data[e.name] = js
 	}
-	info := s.Fandom.SiteInfo(r.Context(), wiki)
-	s.renderArticle(w, r, wiki, page, kind, source, q, data, info)
+	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
+	s.renderArticle(w, r, wiki, lang, page, kind, source, q, data, info)
 }
 
-func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, page, source string) {
+func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, lang, page, source string) {
 	s.common(w)
 	w.Header().Set("Retry-After", "30")
 	w.Header().Set("Cache-Control", "max-age=30, public")
@@ -119,7 +119,7 @@ func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, page
 	msg := "<p>Sorry! Fandom isn't allowing BreezeWiki to show pages right now.</p><p>We'll automatically try again in 30 seconds, so please stay on this page and be patient.</p><p><small>In a hurry? <a href=\"" + quote(source) + "\">Click here to read the page on Fandom.</a></small></p>"
 	// Preserve the intended status even if render.Page fails.
 	info := fandom.DefaultSiteInfo
-	out, err := s.pageHTML(r, wiki, strings.ReplaceAll(page, "_", " "), source, msg, "", info)
+	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, msg, "", info)
 	if err != nil {
 		s.internalError(w, err)
 		return
@@ -127,7 +127,7 @@ func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, page
 	s.html(w, 503, out)
 }
 
-func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, page, kind, source, query string, data map[string]map[string]any, info map[string]any) {
+func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string, data map[string]map[string]any, info map[string]any) {
 	var content, title, head string
 	switch kind {
 	case "allpages":
@@ -137,12 +137,12 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 		b.WriteString(`<div class="mw-parser-output"><ul>`)
 		for _, item := range pages {
 			name := fandom.String(item, "title")
-			fmt.Fprintf(&b, `<li><a href="%s">%s</a></li>`, quote(linkTo(wiki, name)), quote(name))
+			fmt.Fprintf(&b, `<li><a href="%s">%s</a></li>`, quote(linkTo(wiki, lang, name)), quote(name))
 		}
 		b.WriteString(`</ul>`)
 		if next := fandom.String(data["allpages"], "continue", "apcontinue"); next != "" {
 			fmt.Fprintf(&b, `<p><a href="%s?from=%s">Next page</a></p>`,
-				quote(linkTo(wiki, "Special:AllPages")), quote(url.QueryEscape(next)))
+				quote(linkTo(wiki, lang, "Special:AllPages")), quote(url.QueryEscape(next)))
 		}
 		b.WriteString(`</div>`)
 		content = b.String()
@@ -162,7 +162,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 					b.WriteString(" · ")
 				}
 				name := fandom.String(item, "category")
-				b.WriteString(`<a href="` + quote(linkTo(wiki, "Category:"+name)) + `">` + quote(strings.ReplaceAll(name, "_", " ")) + `</a>`)
+				b.WriteString(`<a href="` + quote(linkTo(wiki, lang, "Category:"+name)) + `">` + quote(strings.ReplaceAll(name, "_", " ")) + `</a>`)
 			}
 			b.WriteString("</p></nav>")
 			content += b.String()
@@ -180,7 +180,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 		b.WriteString("<hr><h2>All Pages in " + quote(title) + "</h2><div class=\"mw-parser-output\"><ul class=\"my-category-list\">")
 		for _, m := range members {
 			t := fandom.String(m, "title")
-			b.WriteString("<li><a href=\"" + quote(linkTo(wiki, t)) + "\">" + quote(t) + "</a></li>")
+			b.WriteString("<li><a href=\"" + quote(linkTo(wiki, lang, t)) + "\">" + quote(t) + "</a></li>")
 		}
 		b.WriteString("</ul></div>")
 		content += b.String()
@@ -231,11 +231,10 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 			b.WriteString("<p>This file may be copyrighted. Consider licensing and fair use law before reusing it.</p>")
 		}
 		u := fandom.String(img, "user")
-		b.WriteString("<p>Uploaded by <a href=\"" + quote(linkTo(wiki, "User:"+u)) + "\">" + quote(u) + "</a>.</p>")
+		b.WriteString("<p>Uploaded by <a href=\"" + quote(linkTo(wiki, lang, "User:"+u)) + "\">" + quote(u) + "</a>.</p>")
 		if timestamp := fandom.String(img, "timestamp"); timestamp != "" {
 			b.WriteString("<p>Latest upload: <time datetime=\"" + quote(timestamp) + "\">" + quote(strings.SplitN(timestamp, "T", 2)[0]) + "</time>.</p>")
 		}
-
 		if len(usage) > 0 {
 			b.WriteString("<p>This file is used in ")
 			for i, v := range usage {
@@ -243,7 +242,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 					b.WriteString(", ")
 				}
 				t := fandom.String(v, "title")
-				b.WriteString("<a href=\"" + quote(linkTo(wiki, t)) + "\">" + quote(t) + "</a>")
+				b.WriteString("<a href=\"" + quote(linkTo(wiki, lang, t)) + "\">" + quote(t) + "</a>")
 			}
 			if fandom.Value(data["imageinfo"], "continue", "fucontinue") != nil {
 				b.WriteString("…")
@@ -265,13 +264,13 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 			wordcount := fandom.Value(item, "wordcount")
 			size, _ := fandom.Value(item, "size").(float64)
 			fmt.Fprintf(&b, "<li class=\"my-result\"><a class=\"my-result__link\" href=\"%s\">%s</a><div class=\"my-result__info\">last edited <time datetime=\"%s\">%s</time>, %v words, %.1f kb</div></li>",
-				quote(linkTo(wiki, t)), quote(t), quote(timestamp), quote(date), wordcount, float64(int(size/100+0.5))/10)
+				quote(linkTo(wiki, lang, t)), quote(t), quote(timestamp), quote(date), wordcount, float64(int(size/100+0.5))/10)
 		}
 		b.WriteString("</ul></div>")
 		content = b.String()
 	}
 	if kind != "search" {
-		rewritten, err := rewriteContent(content, wiki, s.Config.True("strict_proxy"))
+		rewritten, err := rewriteContent(content, wiki, lang, s.Config.True("strict_proxy"))
 		if err != nil {
 			s.internalError(w, err)
 			return
@@ -279,21 +278,21 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, pag
 		content = rewritten
 	}
 	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
-		content += commentsPlaceholder(wiki, title)
+		content += commentsPlaceholder(wiki, lang, title)
 	}
-	s.layout(w, r, wiki, title, source, content, head, info)
+	s.layout(w, r, wiki, lang, title, source, content, head, info)
 }
 func asList(v any) []any { a, _ := v.([]any); return a }
 
-func (s *Server) randomPage(w http.ResponseWriter, r *http.Request, wiki string) {
+func (s *Server) randomPage(w http.ResponseWriter, r *http.Request, wiki, lang string) {
 	params := []fandom.Param{param("action", "query"), param("list", "random"),
 		param("rnnamespace", "0"), param("rnlimit", "1"),
 		param("formatversion", "2"), param("format", "json")}
 	if s.Config.True("feature_jsonp::enabled") {
-		s.randomPageJSONP(w, r, wiki, params)
+		s.randomPageJSONP(w, r, wiki, lang, params)
 		return
 	}
-	res, err := s.Fandom.API(r.Context(), wiki, params, theme(r))
+	res, err := s.Fandom.API(r.Context(), wiki, lang, params, theme(r))
 	if err != nil {
 		s.internalError(w, wrapError("Fandom random", err))
 		return
@@ -304,7 +303,7 @@ func (s *Server) randomPage(w http.ResponseWriter, r *http.Request, wiki string)
 		s.notFound(w, r)
 		return
 	case 403, 406:
-		s.fandomDenied(w, r, wiki, "Special:Random", sourceURL(wiki, "Special:Random"))
+		s.fandomDenied(w, r, wiki, lang, "Special:Random", sourceURL(wiki, lang, "Special:Random"))
 		return
 	default:
 		s.internalError(w, fmt.Errorf("Fandom returned %d for random page: %s", res.Status, res.Body))
@@ -320,10 +319,10 @@ func (s *Server) randomPage(w http.ResponseWriter, r *http.Request, wiki string)
 		s.notFound(w, r)
 		return
 	}
-	s.redirect(w, linkTo(wiki, fandom.String(items[0], "title")))
+	s.redirect(w, linkTo(wiki, lang, fandom.String(items[0], "title")))
 }
 
-func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki string, params []fandom.Param) {
+func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki, lang string, params []fandom.Param) {
 	q := url.Values{}
 	for _, p := range params {
 		q.Add(p.Key, p.Value)
@@ -332,14 +331,35 @@ func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki st
 	var b strings.Builder
 	b.WriteString(`<p id="random-status">Finding a random page…</p><script>function showRandomPage(data) {`)
 	b.WriteString(`const title = data.query?.random?.[0]?.title; if (!title) { document.getElementById("random-status").textContent = "No random page was found."; return; } `)
-	b.WriteString(`location.replace(` + jsonString("/"+wiki+"/wiki/") + ` + title.replaceAll(" ", "_").split("/").map(encodeURIComponent).join("/"));`)
-	b.WriteString(`}</script><script async src="https://` + wiki + `.fandom.com/api.php?` + quote(q.Encode()))
+	b.WriteString(`location.replace(` + jsonString("/"+wiki+func() string {
+		if lang != "" {
+			return "/" + lang
+		}
+		return ""
+	}()+"/wiki/") + ` + title.replaceAll(" ", "_").split("/").map(encodeURIComponent).join("/"));`)
+	resourceOrigin := "https://" + wiki + ".fandom.com"
+	if lang != "" {
+		resourceOrigin += "/" + lang
+	}
+	b.WriteString(`}</script><script async src="` + resourceOrigin + `/api.php?` + quote(q.Encode()))
 	b.WriteString(`" onerror="document.getElementById('random-status').textContent='Unable to load a random page.'"></script>`)
-	s.layout(w, r, wiki, "Random page", sourceURL(wiki, "Special:Random"), b.String(), "", fandom.DefaultSiteInfo)
+	s.layout(w, r, wiki, lang, "Random page", sourceURL(wiki, lang, "Special:Random"), b.String(), "", fandom.DefaultSiteInfo)
 }
 
-func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, page, kind, source, query string) {
+func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string) {
 	ep := endpoints(kind, page, query)
+	extras := map[string]string{}
+	if lang != "" && kind == "wiki" && strings.Contains(page, ":") {
+		ep[0] = parseEndpoint(page, "categories|sections")
+		for _, extra := range []endpoint{endpoints("category", page, query)[0], endpoints("file", page, query)[1]} {
+			q := url.Values{}
+			for _, param := range extra.params {
+				q.Add(param.Key, param.Value)
+			}
+			q.Set("callback", "proxy."+extra.name)
+			extras[extra.name] = "https://" + wiki + ".fandom.com/" + lang + "/api.php?" + q.Encode()
+		}
+	}
 	ep = append(ep, endpoint{"siteinfo", fandom.SiteInfoParams})
 	// A JSONP page is a real HTML page, not JSON. The browser fetches each
 	// endpoint with a callback, then POSTs the results back to this URL.
@@ -352,18 +372,26 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, page, kind,
 			q.Add(p.Key, p.Value)
 		}
 		q.Set("callback", "proxy."+e.name)
-		u := "https://" + wiki + ".fandom.com/api.php?" + q.Encode()
+		u := "https://" + wiki + ".fandom.com"
+		if lang != "" {
+			u += "/" + lang
+		}
+		u += "/api.php?" + q.Encode()
 		fmt.Fprintf(&b, "<script async src=\"%s\" data-jsonp-var=\"%s\" onerror=\"proxy.%s({error:{code:'disconnected',info:'Fandom connection failed or was blocked by your browser. Check any browser extensions that may block third-party scripts, then reload the page.'}})\"></script>", html.EscapeString(u), e.name, e.name)
 	}
-	b.WriteString("<script>BWData.path = " + jsonString(page) + "; BWData.jsonp = true; BWData.strict_proxy = " + jsonString(s.Config.True("strict_proxy")) + ";</script>")
+	b.WriteString("<script>BWData.path = " + jsonString(page) + "; BWData.jsonp = true; BWData.strict_proxy = " + jsonString(s.Config.True("strict_proxy")) + ";")
+	if len(extras) > 0 {
+		b.WriteString("BWData.localizedExtraEndpoints = " + jsonString(extras) + ";")
+	}
+	b.WriteString("</script>")
 	b.WriteString("<script type=\"module\" src=\"" + s.staticURL("jsonp.js") + "\"></script>")
 	title := strings.ReplaceAll(page, "_", " ")
 	if kind == "search" {
 		title = "Search"
 	}
-	s.layout(w, r, wiki, title, source, b.String(), "", fandom.DefaultSiteInfo)
+	s.layout(w, r, wiki, lang, title, source, b.String(), "", fandom.DefaultSiteInfo)
 }
-func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, page, kind, source, query string) {
+func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string) {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		origin = r.Header.Get("Referer")
@@ -392,9 +420,19 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, page,
 		s.postError(w, "Missing wikiname or path.")
 		return
 	}
-	source = sourceURL(postWiki, postPage)
+	source = sourceURL(postWiki, lang, postPage)
 	if kind == "search" {
-		source = sourceURL(postWiki, "Special:Search?query="+url.QueryEscape(query)+"&search=internal")
+		source = sourceURL(postWiki, lang, "Special:Search") + "?query=" + url.QueryEscape(query) + "&search=internal"
+	}
+	info := fandom.DefaultSiteInfo
+	if v, ok := input["siteinfo"].(map[string]any); ok {
+		info = v
+	}
+	if lang != "" && kind == "wiki" && strings.Contains(postPage, ":") {
+		kind = namespaceKind(info, postPage)
+		if kind == "category" {
+			input["pagedata"] = input["wikipage"]
+		}
 	}
 	data := map[string]map[string]any{}
 	for _, e := range endpoints(kind, postPage, query) {
@@ -405,11 +443,7 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, page,
 		}
 		data[e.name] = d
 	}
-	info := fandom.DefaultSiteInfo
-	if v, ok := input["siteinfo"].(map[string]any); ok {
-		info = v
-	}
-	s.renderArticle(w, r, postWiki, postPage, kind, source, query, data, info)
+	s.renderArticle(w, r, postWiki, lang, postPage, kind, source, query, data, info)
 }
 func (s *Server) postError(w http.ResponseWriter, message string) {
 	s.common(w)

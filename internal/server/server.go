@@ -25,6 +25,7 @@ import (
 )
 
 var wikiPath = regexp.MustCompile(`^/([a-zA-Z0-9-]{1,50})(?:/(.*))?$`)
+var languagePath = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9-]*)/(wiki(?:/.*)?|search|comments)$`)
 var redirectMessage = regexp.MustCompile(`(?is)<[^>]*class=["'][^"']*\bredirectMsg\b[^"']*["'][^>]*>.*?<a\b[^>]*href=["']([^"']+)["']`)
 
 type Server struct {
@@ -108,36 +109,121 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.redirect(w, target)
 			return
 		}
+		lang := ""
+		if language := languagePath.FindStringSubmatch(rest); language != nil && language[1] != "wiki" {
+			lang, rest = language[1], language[2]
+		}
 		switch {
 		case rest == "wiki/Special:Random":
-			s.randomPage(w, r, wiki)
+			s.randomPage(w, r, wiki, lang)
 			return
 		case rest == "wiki/Special:AllPages":
-			s.article(w, r, wiki, "Special:AllPages", "allpages")
+			s.article(w, r, wiki, lang, "Special:AllPages", "allpages")
 			return
 		case strings.HasPrefix(rest, "wiki/Category:") && len(rest) > len("wiki/Category:"):
-			s.article(w, r, wiki, strings.TrimPrefix(rest, "wiki/"), "category")
+			s.article(w, r, wiki, lang, strings.TrimPrefix(rest, "wiki/"), "category")
 			return
 		case strings.HasPrefix(rest, "wiki/File:") && len(rest) > len("wiki/File:"):
-			s.article(w, r, wiki, strings.TrimPrefix(rest, "wiki/"), "file")
+			s.article(w, r, wiki, lang, strings.TrimPrefix(rest, "wiki/"), "file")
 			return
 		case strings.HasPrefix(rest, "wiki/") && len(rest) > len("wiki/"):
 			page := strings.TrimPrefix(rest, "wiki/")
-			s.article(w, r, wiki, page, "wiki")
+			kind := "wiki"
+			if lang != "" && strings.Contains(page, ":") && !s.Config.True("feature_jsonp::enabled") {
+				siteinfo := s.Fandom.SiteInfo(r.Context(), wiki, lang)
+				switch specialPageKind(siteinfo, page) {
+				case "random":
+					s.randomPage(w, r, wiki, lang)
+					return
+				case "allpages":
+					s.article(w, r, wiki, lang, "Special:AllPages", "allpages")
+					return
+				}
+				kind = namespaceKind(siteinfo, page)
+			}
+			s.article(w, r, wiki, lang, page, kind)
 			return
 		case rest == "comments":
-			s.comments(w, r, wiki)
+			s.comments(w, r, wiki, lang)
 			return
 		case rest == "search":
-			s.article(w, r, wiki, "", "search")
+			s.article(w, r, wiki, lang, "", "search")
 			return
 		case rest == "" || rest == "wiki" || rest == "wiki/":
-			s.redirectWiki(w, r, wiki)
+			s.redirectWiki(w, r, wiki, lang)
 			return
 		}
 	}
 	s.notFound(w, r)
 }
+func specialPageKind(info map[string]any, page string) string {
+	prefix, name, ok := strings.Cut(page, ":")
+	if !ok {
+		return ""
+	}
+	normalize := func(s string) string { return strings.ToLower(strings.ReplaceAll(s, "_", " ")) }
+	ns := fandom.String(info, "query", "namespaces", "-1", "name")
+	canonical := fandom.String(info, "query", "namespaces", "-1", "canonical")
+	specialNS := strings.EqualFold(prefix, "Special") || ns != "" && strings.EqualFold(prefix, ns) || canonical != "" && strings.EqualFold(prefix, canonical)
+	aliases, _ := fandom.Value(info, "query", "namespacealiases").([]any)
+	for _, alias := range aliases {
+		id, _ := fandom.Value(alias, "id").(float64)
+		if id == -1 && strings.EqualFold(prefix, fandom.String(alias, "alias")) {
+			specialNS = true
+		}
+	}
+	if !specialNS {
+		return ""
+	}
+	pages, _ := fandom.Value(info, "query", "specialpagealiases").([]any)
+	for _, pageAlias := range pages {
+		realName := fandom.String(pageAlias, "realname")
+		kind := ""
+		switch strings.ToLower(realName) {
+		case "randompage":
+			kind = "random"
+		case "allpages":
+			kind = "allpages"
+		}
+		if kind == "" {
+			continue
+		}
+		if normalize(name) == normalize(realName) {
+			return kind
+		}
+		names, _ := fandom.Value(pageAlias, "aliases").([]any)
+		for _, alias := range names {
+			value, _ := alias.(string)
+			if normalize(name) == normalize(value) {
+				return kind
+			}
+		}
+	}
+	return ""
+}
+
+func namespaceKind(info map[string]any, page string) string {
+	prefix, _, _ := strings.Cut(page, ":")
+	for _, namespace := range []struct {
+		id   int
+		kind string
+	}{{6, "file"}, {14, "category"}} {
+		name := fandom.String(info, "query", "namespaces", strconv.Itoa(namespace.id), "name")
+		if name != "" && strings.EqualFold(prefix, name) ||
+			strings.EqualFold(prefix, fandom.String(info, "query", "namespaces", strconv.Itoa(namespace.id), "canonical")) {
+			return namespace.kind
+		}
+		aliases, _ := fandom.Value(info, "query", "namespacealiases").([]any)
+		for _, alias := range aliases {
+			id, _ := fandom.Value(alias, "id").(float64)
+			if int(id) == namespace.id && strings.EqualFold(prefix, fandom.String(alias, "alias")) {
+				return namespace.kind
+			}
+		}
+	}
+	return "wiki"
+}
+
 func (s *Server) common(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Link", fmt.Sprintf("<%s>; rel=preload; as=style, <%s>; rel=preload; as=script, <%s>; rel=preload; as=font; crossorigin; type=font/woff2",
@@ -203,10 +289,10 @@ func (s *Server) subdomain(w http.ResponseWriter, r *http.Request) bool {
 	}
 	return false
 }
-func (s *Server) redirectWiki(w http.ResponseWriter, r *http.Request, wiki string) {
-	info := s.Fandom.SiteInfo(r.Context(), wiki)
+func (s *Server) redirectWiki(w http.ResponseWriter, r *http.Request, wiki, lang string) {
+	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
 	_, base := fandom.General(info)
-	s.redirect(w, "/"+wiki+"/wiki/"+base)
+	s.redirect(w, linkTo(wiki, lang, base))
 }
 func (s *Server) globalSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -221,21 +307,21 @@ func (s *Server) globalSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if q.Get("q") == "" {
-		s.redirectWiki(w, r, wiki)
+		s.redirectWiki(w, r, wiki, "")
 		return
 	}
 	s.redirect(w, "/"+wiki+"/search?q="+url.QueryEscape(q.Get("q")))
 }
-func (s *Server) page(w http.ResponseWriter, r *http.Request, wiki, title, source, raw, head string, siteinfo map[string]any) {
-	rewritten, err := rewriteContent(raw, wiki, s.Config.True("strict_proxy"))
+func (s *Server) page(w http.ResponseWriter, r *http.Request, wiki, lang, title, source, raw, head string, siteinfo map[string]any) {
+	rewritten, err := rewriteContent(raw, wiki, lang, s.Config.True("strict_proxy"))
 	if err != nil {
 		s.internalError(w, err)
 		return
 	}
-	s.layout(w, r, wiki, title, source, rewritten, head, siteinfo)
+	s.layout(w, r, wiki, lang, title, source, rewritten, head, siteinfo)
 }
-func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, title, source, content, head string, siteinfo map[string]any) {
-	out, err := s.pageHTML(r, wiki, title, source, content, head, siteinfo)
+func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, lang, title, source, content, head string, siteinfo map[string]any) {
+	out, err := s.pageHTML(r, wiki, lang, title, source, content, head, siteinfo)
 	if err != nil {
 		s.internalError(w, err)
 		return
@@ -248,14 +334,14 @@ func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, title, sou
 	}
 	s.html(w, 200, out)
 }
-func (s *Server) pageHTML(r *http.Request, wiki, title, source, content, head string, siteinfo map[string]any) (string, error) {
+func (s *Server) pageHTML(r *http.Request, wiki, lang, title, source, content, head string, siteinfo map[string]any) (string, error) {
 	if siteinfo == nil {
 		siteinfo = fandom.DefaultSiteInfo
 	}
 	origin := s.Config.Get("canonical_origin")
-	out, err := render.Page(content, render.Options{Wiki: wiki, Title: title, SourceURL: source,
+	out, err := render.Page(content, render.Options{Wiki: wiki, Lang: lang, Title: title, SourceURL: source,
 		CanonicalOrigin: origin, ApplicationName: s.Config.Get("application_name"),
-		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path,
+		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path, EscapedPath: r.URL.EscapedPath(),
 		CurrentURL: r.URL.RequestURI(), Notices: notices(r),
 		ExternalNoticeHTML:       s.genericNotice(r.Context(), wiki, title),
 		DisableSearchSuggestions: !s.Config.True("feature_search_suggestions"),
@@ -263,13 +349,13 @@ func (s *Server) pageHTML(r *http.Request, wiki, title, source, content, head st
 	if err != nil {
 		return "", err
 	}
-	return s.adjustPageAssets(out, r, wiki), nil
+	return s.adjustPageAssets(out, r, wiki, lang), nil
 }
-func rewriteContent(raw, wiki string, strict bool) (string, error) {
+func rewriteContent(raw, wiki, lang string, strict bool) (string, error) {
 	if strict {
-		return render.RewriteWithProxy(raw, wiki, true)
+		return render.RewriteWithProxy(raw, wiki, lang, true)
 	}
-	return render.Rewrite(raw, wiki)
+	return render.Rewrite(raw, wiki, lang)
 }
 func theme(r *http.Request) string {
 	c, err := r.Cookie("theme")
@@ -355,16 +441,22 @@ func assetMIME(filename string) string {
 	}
 	return mime.TypeByExtension(filepath.Ext(filename))
 }
-func sourceURL(wiki, page string) string { return "https://" + wiki + ".fandom.com/wiki/" + page }
-func quote(v string) string              { return html.EscapeString(v) }
-func linkTo(wiki, title string) string {
+func sourceURL(wiki, lang, page string) string {
+	return "https://" + wiki + ".fandom.com" + strings.TrimPrefix(linkTo(wiki, lang, page), "/"+wiki)
+}
+func quote(v string) string { return html.EscapeString(v) }
+func linkTo(wiki, lang, title string) string {
 	// MediaWiki page titles encode slashes as path separators.
 	p := strings.ReplaceAll(title, " ", "_")
 	segments := strings.Split(p, "/")
 	for i, seg := range segments {
 		segments[i] = pathEscape(seg)
 	}
-	return "/" + wiki + "/wiki/" + strings.Join(segments, "/")
+	prefix := "/" + wiki
+	if lang != "" {
+		prefix += "/" + lang
+	}
+	return prefix + "/wiki/" + strings.Join(segments, "/")
 }
 func pathEscape(s string) string {
 	var b strings.Builder

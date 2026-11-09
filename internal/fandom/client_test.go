@@ -54,20 +54,49 @@ func TestAPIAndSiteInfoCache(t *testing.T) {
 	c.HTTP = remote.Client()
 	c.Origin = func(string) string { return remote.URL }
 	ctx := context.Background()
-	res, err := c.API(ctx, "test", []Param{{"action", "parse"}, {"page", "Foo & Bar"}}, "dark")
+	res, err := c.API(ctx, "test", "", []Param{{"action", "parse"}, {"page", "Foo & Bar"}}, "dark")
 	if err != nil || res.Status != 200 || theme != "theme=dark" {
 		t.Fatalf("API %v %+v theme=%q", err, res, theme)
 	}
-	info := c.SiteInfo(ctx, "test")
+	info := c.SiteInfo(ctx, "test", "")
 	name, base := General(info)
 	if name != "Example Wiki" || base != "Front_Page" {
 		t.Fatalf("siteinfo %s %s", name, base)
 	}
-	_ = c.SiteInfo(ctx, "test")
+	_ = c.SiteInfo(ctx, "test", "")
 	if count.Load() != 2 {
 		t.Fatalf("siteinfo wasn't cached: %d calls", count.Load())
 	}
 }
+func TestLanguageAPIAndSiteInfoCache(t *testing.T) {
+	var paths []string
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if r.URL.Query().Get("meta") == "siteinfo" {
+			_, _ = fmt.Fprintf(w, `{"query":{"general":{"sitename":%q,"base":%q}}}`, r.URL.Path, r.URL.Path)
+			return
+		}
+		_, _ = io.WriteString(w, `{"parse":{"title":"Page"}}`)
+	}))
+	defer remote.Close()
+	c := New(config.New(nil))
+	c.HTTP = remote.Client()
+	c.Origin = func(string) string { return remote.URL }
+	ctx := context.Background()
+	if _, err := c.API(ctx, "test", "es", []Param{{"action", "parse"}, {"page", "Page"}}, ""); err != nil {
+		t.Fatal(err)
+	}
+	spanish := c.SiteInfo(ctx, "test", "es")
+	english := c.SiteInfo(ctx, "test", "")
+	_ = c.SiteInfo(ctx, "test", "es")
+	if len(paths) != 3 || paths[0] != "/es/api.php" || paths[1] != "/es/api.php" || paths[2] != "/api.php" {
+		t.Fatalf("API paths and cache separation: %v", paths)
+	}
+	if String(spanish, "query", "general", "sitename") == String(english, "query", "general", "sitename") {
+		t.Fatal("language variants shared siteinfo cache")
+	}
+}
+
 func TestRefusalBackoff(t *testing.T) {
 	var count atomic.Int32
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,5 +117,26 @@ func TestRefusalBackoff(t *testing.T) {
 	}
 	if count.Load() != 1 {
 		t.Errorf("expected cross-wiki 30-second refusal cache; got %d calls", count.Load())
+	}
+}
+
+func TestFailedSiteInfoIsRetried(t *testing.T) {
+	attempts := 0
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = io.WriteString(w, `{"query":{"general":{"sitename":"Recovered Wiki"},"namespaces":{"6":{"name":"Archivo","canonical":"File"}}}}`)
+	}))
+	defer remote.Close()
+	c := New(config.New(map[string]string{"log_outgoing": "false"}))
+	c.HTTP = remote.Client()
+	c.Origin = func(string) string { return remote.URL }
+	first := c.SiteInfo(context.Background(), "test", "es")
+	second := c.SiteInfo(context.Background(), "test", "es")
+	if attempts != 2 || String(first, "query", "general", "sitename") == "Recovered Wiki" || String(second, "query", "general", "sitename") != "Recovered Wiki" {
+		t.Fatalf("failed siteinfo permanently cached: attempts %d, first %v, second %v", attempts, first, second)
 	}
 }

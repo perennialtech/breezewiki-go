@@ -22,6 +22,38 @@ render(html`<progress value="${progress}" max="1"></progress>`, progressBar)
 
 // *** Incoming data processing
 
+let localizedExtraChecked = false
+
+function localizedExtraName(siteinfo, title) {
+    const prefix = title.split(":", 1)[0].toLowerCase()
+    const namespaces = siteinfo.query?.namespaces ?? {}
+    const aliases = siteinfo.query?.namespacealiases ?? []
+    for (const [id, extraName] of [[6, "imageinfo"], [14, "membersdata"]]) {
+        const namespace = namespaces[id]
+        if ([namespace?.name, namespace?.canonical].some(name => name?.toLowerCase() === prefix) ||
+                aliases.some(alias => alias.id === id && alias.alias?.toLowerCase() === prefix)) {
+            return extraName
+        }
+    }
+    return null
+}
+
+function localizedSpecialPage(siteinfo, title) {
+    const [prefix, name] = title.split(":", 2)
+    if (!name) return null
+    const normalize = value => value?.replaceAll("_", " ").toLowerCase()
+    const special = siteinfo.query?.namespaces?.[-1]
+    const aliases = siteinfo.query?.namespacealiases ?? []
+    const isSpecial = ["Special", special?.name, special?.canonical].some(value => value?.toLowerCase() === prefix.toLowerCase()) ||
+        aliases.some(alias => alias.id === -1 && alias.alias?.toLowerCase() === prefix.toLowerCase())
+    if (!isSpecial) return null
+    for (const [realName, canonical] of [["Randompage", "Random"], ["Allpages", "AllPages"]]) {
+        const entry = siteinfo.query?.specialpagealiases?.find(item => item.realname?.toLowerCase() === realName.toLowerCase())
+        if (entry && [realName, ...entry.aliases].some(alias => normalize(alias) === normalize(name))) return canonical
+    }
+    return null
+}
+
 // Handle case where data is immediately available
 cont()
 
@@ -38,13 +70,34 @@ window.proxy = new Proxy(jsonpData, {
 // *** Data upload and download
 
 async function cont() {
+    if (BWData.lang && BWData.path?.includes(":") && jsonpData.siteinfo) {
+        const special = localizedSpecialPage(jsonpData.siteinfo, BWData.path)
+        if (special) {
+            location.replace(`/${BWData.wikiname}/${BWData.lang}/wiki/Special:${special}${location.search}${location.hash}`)
+            return
+        }
+    }
 	// Check for errors
 	for (const v of Object.values(jsonpData)) {
 		if (v.error) return error(v)
 	}
 
-	// Check for completion
-	const dependencies = [...document.querySelectorAll("[data-jsonp-var]")].map(e => e.getAttribute("data-jsonp-var"))
+    // Localized namespaces use siteinfo fetched by the browser, not a server-side probe.
+    if (!localizedExtraChecked && BWData.localizedExtraEndpoints && jsonpData.siteinfo) {
+        localizedExtraChecked = true
+        const extraName = localizedExtraName(jsonpData.siteinfo, BWData.path)
+        if (extraName) {
+            const script = document.createElement("script")
+            script.async = true
+            script.dataset.jsonpVar = extraName
+            script.src = BWData.localizedExtraEndpoints[extraName]
+            script.onerror = () => proxy[extraName]({error: {code: "disconnected", info: "Fandom connection failed or was blocked by your browser."}})
+            document.head.appendChild(script)
+        }
+    }
+
+    // Check for completion
+    const dependencies = [...document.querySelectorAll("[data-jsonp-var]")].map(e => e.getAttribute("data-jsonp-var"))
 	for (const d of dependencies) {
 		if (!(d in jsonpData)) return
 	}
@@ -143,7 +196,7 @@ function error(data) {
 	if (typeof data === "string") {
 		render(html`<p><strong>BreezeWiki ran into an error on this page.</strong></p><p>Try reloading the page.</p><p>If this keeps happening, you could <a href="mailto:~cadence/breezewiki-discuss@lists.sr.ht">send a public bug report</a>. Please include the following information:</p><pre>URL: ${window.location.href}${"\n"}${data}</pre>`, eContent)
 	} else if (data.error.code === "missingtitle") {
-		render(html`<p><strong>This page doesn't exist on Fandom.</strong></p><p><small><a href="/${BWData.wikiname}/wiki/Main_Page">Return to the wiki's main page</a></small></p>`, eContent)
+		render(html`<p><strong>This page doesn't exist on Fandom.</strong></p><p><small><a href="/${BWData.wikiname}${BWData.lang ? `/${BWData.lang}` : ""}/wiki">Return to the wiki's main page</a></small></p>`, eContent)
 	} else {
 		render(html`<p>BreezeWiki wasn't able to load this page.</p><p><strong>${data.error.code}: ${data.error.info}</strong></p>`, eContent)
 	}

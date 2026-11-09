@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	wikiLinkRE           = regexp.MustCompile(`^https://([a-zA-Z0-9-]{1,50})\.fandom\.com(/wiki/.*)$`)
+	wikiLinkRE           = regexp.MustCompile(`^https://([a-zA-Z0-9-]{1,50})\.fandom\.com(/(?:[a-zA-Z][a-zA-Z0-9-]*/)?wiki/.*)$`)
 	communityInterwikiRE = regexp.MustCompile(`^https://community\.fandom\.com/wiki/w:c:([a-zA-Z0-9-]{1,50})(?:(?::|%3[Aa])(.*))?$`)
+	languageLinkRE       = regexp.MustCompile(`^/[a-zA-Z][a-zA-Z0-9-]*/wiki/`)
 	fandomResourceRE     = regexp.MustCompile(`^https://(?:static\.wikia\.nocookie\.net/|[a-zA-Z0-9-]{1,50}\.fandom\.com/)`)
 	styleURLRE           = regexp.MustCompile(`url\(['"]?(.*?)['"]?\)`)
 	hiddenStyleRE        = regexp.MustCompile(`display: *none`)
@@ -23,13 +24,13 @@ var (
 
 // Rewrite applies the upstream article transformations to an HTML fragment.
 // It uses BreezeWiki's default (non-strict) proxy behavior.
-func Rewrite(rawHTML, wiki string) (string, error) {
-	return RewriteWithProxy(rawHTML, wiki, false)
+func Rewrite(rawHTML, wiki, lang string) (string, error) {
+	return RewriteWithProxy(rawHTML, wiki, lang, false)
 }
 
 // RewriteWithProxy also supports the upstream strict_proxy configuration:
 // image resources and matching background-image URLs are fetched via /proxy.
-func RewriteWithProxy(rawHTML, wiki string, strictProxy bool) (string, error) {
+func RewriteWithProxy(rawHTML, wiki, lang string, strictProxy bool) (string, error) {
 	root := &html.Node{Type: html.ElementNode, DataAtom: atom.Div, Data: "div"}
 	nodes, err := html.ParseFragmentWithOptions(strings.NewReader(preprocessHTMLWiki(rawHTML)), root, html.ParseOptionEnableScripting(false))
 	if err != nil {
@@ -37,7 +38,7 @@ func RewriteWithProxy(rawHTML, wiki string, strictProxy bool) (string, error) {
 	}
 	var out strings.Builder
 	for _, n := range nodes {
-		if err := html.Render(&out, rewriteElement(n, wiki, strictProxy, false)); err != nil {
+		if err := html.Render(&out, rewriteElement(n, wiki, lang, strictProxy, false)); err != nil {
 			return "", fmt.Errorf("render wiki HTML: %w", err)
 		}
 	}
@@ -152,11 +153,11 @@ func firstDescendant(n *html.Node, predicate func(*html.Node) bool) *html.Node {
 
 func removed() *html.Node { return element("template") }
 
-func rewriteElement(n *html.Node, wiki string, strict, withoutCard bool) *html.Node {
+func rewriteElement(n *html.Node, wiki, lang string, strict, withoutCard bool) *html.Node {
 	if n.Type != html.ElementNode {
 		out := copyNode(n)
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			out.AppendChild(rewriteElement(c, wiki, strict, withoutCard))
+			out.AppendChild(rewriteElement(c, wiki, lang, strict, withoutCard))
 		}
 		return out
 	}
@@ -195,14 +196,14 @@ func rewriteElement(n *html.Node, wiki string, strict, withoutCard bool) *html.N
 		})
 		if card != nil {
 			wrap := element("div")
-			wrap.AppendChild(rewriteElement(card, wiki, strict, false))
+			wrap.AppendChild(rewriteElement(card, wiki, lang, strict, false))
 			table := copyNode(n)
 			cls, _ := getAttr(table, "class")
 			setAttr(table, "class", cls+" bw-updated-cardtable-cardimage")
 			for c := n.FirstChild; c != nil; c = c.NextSibling {
-				table.AppendChild(rewriteElement(c, wiki, strict, true))
+				table.AppendChild(rewriteElement(c, wiki, lang, strict, true))
 			}
-			rewriteAttributes(table, wiki, strict)
+			rewriteAttributes(table, wiki, lang, strict)
 			wrap.AppendChild(table)
 			return wrap
 		}
@@ -213,7 +214,7 @@ func rewriteElement(n *html.Node, wiki string, strict, withoutCard bool) *html.N
 			setAttr(out, "data-scrolling", "")
 		}
 	}
-	rewriteAttributes(out, wiki, strict)
+	rewriteAttributes(out, wiki, lang, strict)
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
 		child := c
 		if hasClass(n, "mw-collapsible-content") && c.Type == html.ElementNode {
@@ -225,7 +226,7 @@ func rewriteElement(n *html.Node, wiki string, strict, withoutCard bool) *html.N
 				setAttr(child, "style", hiddenStyleRE.ReplaceAllString(v, "display:inline"))
 			}
 		}
-		out.AppendChild(rewriteElement(child, wiki, strict, withoutCard))
+		out.AppendChild(rewriteElement(child, wiki, lang, strict, withoutCard))
 	}
 	if hasClass(n, "animated") && countChildren(n) > 1 {
 		outer := element("span", attr("class", "animated-slot__outer"), attr("style", fmt.Sprintf("--steps: %d", countChildren(n))))
@@ -293,7 +294,7 @@ func noscriptImage(n *html.Node) bool {
 		(only.Data == "img" || (only.Data == "a" && hasClass(only, "image")))
 }
 
-func rewriteAttributes(n *html.Node, wiki string, strict bool) {
+func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 	if class, ok := getAttr(n, "class"); ok {
 		class = strings.ReplaceAll(class, "pi-collapse-closed", "")
 		class = strings.ReplaceAll(class, "pi-collapse", "")
@@ -332,8 +333,14 @@ func rewriteAttributes(n *html.Node, wiki string, strict bool) {
 			href = "/" + parts[1] + "/wiki/" + parts[2]
 		} else if parts := wikiLinkRE.FindStringSubmatch(href); parts != nil {
 			href = "/" + parts[1] + parts[2]
-		} else if strings.HasPrefix(href, "/wiki/") {
+		} else if languageLinkRE.MatchString(href) && !strings.HasPrefix(href, "/wiki/") && !strings.HasPrefix(href, "/"+wiki+"/") {
 			href = "/" + wiki + href
+		} else if strings.HasPrefix(href, "/wiki/") {
+			prefix := "/" + wiki
+			if lang != "" {
+				prefix += "/" + lang
+			}
+			href = prefix + href
 		}
 		setAttr(n, "href", href)
 	}

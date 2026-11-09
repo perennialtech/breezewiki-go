@@ -11,7 +11,7 @@ import (
 
 func mustRewrite(t *testing.T, source string) string {
 	t.Helper()
-	got, err := Rewrite(source, "test")
+	got, err := Rewrite(source, "test", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,6 +77,21 @@ func TestWikiLinkAndImages(t *testing.T) {
 	}
 }
 
+func TestLanguageWikiLinks(t *testing.T) {
+	input := `<a href="/es/wiki/Local">Local</a><a href="/wiki/Implicit">Implicit</a>` +
+		`<a href="https://mlp.fandom.com/es/wiki/One">One</a>` +
+		`<a href="https://other.fandom.com/fr/wiki/Deux">Deux</a>` +
+		`<a href="/fr/wiki/Another">Another language</a>` +
+		`<a href="/mlp/es/wiki/Already">Already local</a>` +
+		`<a href="/wiki/wiki/Subpage">Nested wiki title</a>`
+	got, err := Rewrite(input, "mlp", "es")
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, `href="/mlp/es/wiki/Local"`, `href="/mlp/es/wiki/Implicit"`,
+		`href="/mlp/es/wiki/One"`, `href="/other/fr/wiki/Deux"`, `href="/mlp/fr/wiki/Another"`, `href="/mlp/es/wiki/Already"`, `href="/mlp/es/wiki/wiki/Subpage"`)
+}
+
 func TestCommunityInterwikiLinks(t *testing.T) {
 	got := mustRewrite(t, `<div>
 		<a href="https://community.fandom.com/wiki/w:c:zelda:Link">Article</a>
@@ -104,7 +119,7 @@ func TestStrictProxyUpstreamExamples(t *testing.T) {
 		</a>
 		<img src="https://example.org/independent.png">
 		<a class="image" href="https://test.fandom.com/wiki/Image:Test">file</a>
-	</div>`, "test", true)
+	</div>`, "test", "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,6 +393,14 @@ func TestWikiHomeNavigation(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireContains(t, out, `<a href="/example/">Wiki home</a>`)
+}
+
+func TestLocalizedWikiHomeNavigation(t *testing.T) {
+	out, err := Page("<p>Artículo</p>", Options{Wiki: "mlp", Lang: "es", Title: "Artículo", Path: "/mlp/es/wiki/Artículo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `<a href="/mlp/es/wiki">Wiki home</a>`)
 }
 
 func TestWideTableKeyboardScrolling(t *testing.T) {
