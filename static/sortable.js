@@ -19,7 +19,10 @@ function compareValues(a, b) {
 	return collator.compare(a, b)
 }
 
+export function initSortableTables() {
 for (const table of document.querySelectorAll("table.sortable")) {
+    if (table.dataset.bwSortable) continue
+    table.dataset.bwSortable = "1"
 	const header = table.tHead?.rows[0] ?? table.rows[0]
 	const body = table.tBodies[0]
 	if (!header || !body) continue
@@ -54,3 +57,7 @@ for (const table of document.querySelectorAll("table.sortable")) {
 		})
 	}
 }
+
+}
+
+initSortableTables()

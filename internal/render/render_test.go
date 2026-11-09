@@ -320,5 +320,5 @@ func TestSortableTablesScriptIsBundled(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireContains(t, out, `src="/static/sortable.js"`, `class="wikitable sortable"`)
+	requireContains(t, out, `src="/static/sortable.js"`, `"sortable":"/static/sortable.js"`, `class="wikitable sortable"`)
 }

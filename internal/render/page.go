@@ -155,6 +155,7 @@ func Page(content string, opts Options) (string, error) {
 		"jsonp":              staticURL("jsonp.js"),
 		"preact":             staticURL("preact.js"),
 		"search-suggestions": staticURL("search-suggestions.js"),
+		"sortable":           staticURL("sortable.js"),
 		"tabs":               staticURL("tabs.js"),
 	}})
 	if err != nil {
