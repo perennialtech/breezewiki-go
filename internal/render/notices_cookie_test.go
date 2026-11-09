@@ -36,3 +36,31 @@ func TestWikiNoticeDismissalAndThemePreserveCookies(t *testing.T) {
 		t.Fatalf("theme lost notices: %q", got)
 	}
 }
+
+func TestIndependentWikiNoticeStartsCompact(t *testing.T) {
+	opts := Options{Wiki: "minecraft", Title: "Bricks"}
+	got := externalWikiNotice(opts)
+	for _, want := range []string{`class="niwa__summary"`, `<details class="niwa__details">`, `<summary>More information</summary>`, `class="niwa__go"`, `class="niwa__got-it"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if strings.Contains(got, `<details class="niwa__details" open`) {
+		t.Fatal("notice details should start collapsed")
+	}
+}
+
+func TestParallelAndRedirectNoticesRemainCompact(t *testing.T) {
+	parallel := externalWikiNotice(Options{Wiki: "xenoblade", Title: "Shulk"})
+	for _, want := range []string{`class="niwa__summary"`, `<details class="niwa__details">`, `<summary>More information</summary>`, "See also", "multiple communities"} {
+		if !strings.Contains(parallel, want) {
+			t.Errorf("parallel missing %q", want)
+		}
+	}
+	redirect := externalWikiNotice(Options{Wiki: "calamitymod", Title: "Item"})
+	for _, want := range []string{`class="niwa__go"`, `<details class="niwa__details">`, "Take me there!", `niwa__notice--alt`} {
+		if !strings.Contains(redirect, want) {
+			t.Errorf("redirect missing %q", want)
+		}
+	}
+}

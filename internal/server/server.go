@@ -82,7 +82,39 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if m := wikiPath.FindStringSubmatch(uri); m != nil {
 		wiki, rest := m[1], m[2]
+		var canonical string
+		switch wiki {
+		case "bfdi":
+			canonical = "battlefordreamisland"
+		case "mspa":
+			canonical = "mspaintadventures"
+		}
+		if canonical != "" {
+			escaped := r.URL.EscapedPath()
+			suffix := strings.TrimPrefix(escaped, "/")
+			i := 0
+			for n := 0; n < len(wiki); n++ {
+				if suffix[i] == '%' {
+					i += 3
+				} else {
+					i++
+				}
+			}
+			suffix = suffix[i:]
+			target := "/" + canonical + suffix
+			if r.URL.RawQuery != "" {
+				target += "?" + r.URL.RawQuery
+			}
+			s.redirect(w, target)
+			return
+		}
 		switch {
+		case rest == "wiki/Special:Random":
+			s.randomPage(w, r, wiki)
+			return
+		case rest == "wiki/Special:AllPages":
+			s.article(w, r, wiki, "Special:AllPages", "allpages")
+			return
 		case strings.HasPrefix(rest, "wiki/Category:") && len(rest) > len("wiki/Category:"):
 			s.article(w, r, wiki, strings.TrimPrefix(rest, "wiki/"), "category")
 			return
@@ -92,6 +124,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		case strings.HasPrefix(rest, "wiki/") && len(rest) > len("wiki/"):
 			page := strings.TrimPrefix(rest, "wiki/")
 			s.article(w, r, wiki, page, "wiki")
+			return
+		case rest == "comments":
+			s.comments(w, r, wiki)
 			return
 		case rest == "search":
 			s.article(w, r, wiki, "", "search")
@@ -205,9 +240,10 @@ func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, title, sou
 		s.internalError(w, err)
 		return
 	}
-	if r.URL.Query().Get("redirect") != "no" {
+	if r.Method != http.MethodPost && r.URL.Query().Get("redirect") != "no" {
 		if m := redirectMessage.FindStringSubmatch(out); m != nil {
-			w.Header().Set("Refresh", "0;url="+html.UnescapeString(m[1]))
+			s.redirect(w, html.UnescapeString(m[1]))
+			return
 		}
 	}
 	s.html(w, 200, out)
@@ -333,7 +369,7 @@ func linkTo(wiki, title string) string {
 func pathEscape(s string) string {
 	var b strings.Builder
 	for _, c := range []byte(s) {
-		if c <= 0x1f || c > 0x7e || strings.ContainsRune(";?`{} \"#<>", rune(c)) {
+		if c <= 0x1f || c > 0x7e || strings.ContainsRune("%;?`{} \"#<>", rune(c)) {
 			fmt.Fprintf(&b, "%%%02X", c)
 		} else {
 			b.WriteByte(c)

@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	wikiLinkRE       = regexp.MustCompile(`^https://([a-zA-Z0-9-]{1,50})\.fandom\.com(/wiki/.*)$`)
-	fandomResourceRE = regexp.MustCompile(`^https://(?:static\.wikia\.nocookie\.net/|[a-zA-Z0-9-]{1,50}\.fandom\.com/)`)
-	styleURLRE       = regexp.MustCompile(`url\(['"]?(.*?)['"]?\)`)
-	hiddenStyleRE    = regexp.MustCompile(`display: *none`)
-	toggleRE         = regexp.MustCompile(`^mw-customtoggle-[^ ]* button-c$`)
-	preprocessRE     = regexp.MustCompile(`(<(?:td|figcaption)[^>]*?>\n?)(?:[ \t]*<a href="[^"]*" class="info-icon"><svg><use xlink:href="#wds-icons-info-small"></use></svg></a>)?(?:<li>|[ \t]*?<p class="caption">(.*?)</p>)`)
+	wikiLinkRE           = regexp.MustCompile(`^https://([a-zA-Z0-9-]{1,50})\.fandom\.com(/wiki/.*)$`)
+	communityInterwikiRE = regexp.MustCompile(`^https://community\.fandom\.com/wiki/w:c:([a-zA-Z0-9-]{1,50})(?:(?::|%3[Aa])(.*))?$`)
+	fandomResourceRE     = regexp.MustCompile(`^https://(?:static\.wikia\.nocookie\.net/|[a-zA-Z0-9-]{1,50}\.fandom\.com/)`)
+	styleURLRE           = regexp.MustCompile(`url\(['"]?(.*?)['"]?\)`)
+	hiddenStyleRE        = regexp.MustCompile(`display: *none`)
+	toggleRE             = regexp.MustCompile(`^mw-customtoggle-[^ ]* button-c$`)
+	preprocessRE         = regexp.MustCompile(`(<(?:td|figcaption)[^>]*?>\n?)(?:[ \t]*<a href="[^"]*" class="info-icon"><svg><use xlink:href="#wds-icons-info-small"></use></svg></a>)?(?:<li>|[ \t]*?<p class="caption">(.*?)</p>)`)
 )
 
 // Rewrite applies the upstream article transformations to an HTML fragment.
@@ -244,9 +245,9 @@ func rewriteElement(n *html.Node, wiki string, strict, withoutCard bool) *html.N
 			out.AppendChild(externalLinkIcon())
 		}
 	}
-	if n.Data == "table" && hasClass(n, "wikitable") {
+	if n.Data == "table" && (hasClass(n, "wikitable") || hasClass(n, "va-table")) {
 		if _, ok := getAttr(n, "data-scrolling"); !ok {
-			wrap := element("div", attr("class", "table-scroller"))
+			wrap := element("div", attr("class", "table-scroller"), attr("role", "region"), attr("aria-label", "Scrollable table"), attr("tabindex", "0"))
 			wrap.AppendChild(out)
 			return wrap
 		}
@@ -327,7 +328,9 @@ func rewriteAttributes(n *html.Node, wiki string, strict bool) {
 		}
 	}
 	if href, ok := getAttr(n, "href"); ok {
-		if parts := wikiLinkRE.FindStringSubmatch(href); parts != nil {
+		if parts := communityInterwikiRE.FindStringSubmatch(href); parts != nil {
+			href = "/" + parts[1] + "/wiki/" + parts[2]
+		} else if parts := wikiLinkRE.FindStringSubmatch(href); parts != nil {
 			href = "/" + parts[1] + parts[2]
 		} else if strings.HasPrefix(href, "/wiki/") {
 			href = "/" + wiki + href

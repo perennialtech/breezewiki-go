@@ -91,6 +91,18 @@ func pathForPage(opts Options) string {
 	return strings.ReplaceAll(opts.Title, " ", "_")
 }
 
+func historyURL(opts Options) string {
+	path := strings.TrimPrefix(opts.Path, "/"+opts.Wiki)
+	if path == opts.Path || !strings.Contains(path, "/wiki/") {
+		return ""
+	}
+	parts := strings.Split(path, "/")
+	for i, part := range parts {
+		parts[i] = url.PathEscape(part)
+	}
+	return "https://" + opts.Wiki + ".fandom.com" + strings.Join(parts, "/") + "?action=history"
+}
+
 func themeLink(opts Options, theme string) string {
 	path := opts.CurrentURL
 	if path == "" {
@@ -177,7 +189,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString("</script><script type=\"importmap\">")
 	b.Write(imports)
 	b.WriteString("</script>")
-	scripts := []string{"countdown.js", "tabs.js"}
+	scripts := []string{"countdown.js", "tabs.js", "comments.js"}
 	if !opts.DisableSearchSuggestions {
 		scripts = append([]string{"search-suggestions.js"}, scripts...)
 	}
@@ -204,9 +216,19 @@ func Page(content string, opts Options) (string, error) {
 	}
 	b.WriteString(`<div class="custom-top"><h1 class="page-title">`)
 	titleBreadcrumbs(&b, opts.Title)
-	b.WriteString(`</h1><nav class="sitesearch"><form action="/`)
+	b.WriteString(`</h1><nav class="sitesearch"><a href="/`)
 	b.WriteString(escaped(opts.Wiki))
-	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
+	b.WriteString(`/">Wiki home</a>`)
+	if strings.Contains(opts.Path, "/wiki/") && !strings.Contains(opts.Path, "/wiki/Special:") && opts.SourceURL != "" {
+		b.WriteString(`<a rel="nofollow" href="`)
+		b.WriteString(escaped(historyURL(opts)))
+		b.WriteString(`">History</a>`)
+	}
+	b.WriteString(`<form action="/`)
+	b.WriteString(escaped(opts.Wiki))
+	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><a href="/`)
+	b.WriteString(escaped(opts.Wiki))
+	b.WriteString(`/wiki/Special:AllPages">All pages</a><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
 	for _, t := range []string{"default", "light", "dark"} {
 		class := "bw-theme__item"
 		if t == theme {

@@ -1010,4 +1010,16 @@
     "logo": null,
     "description": ""
   }
+,
+{
+  "wikinames": [
+    "warframe"
+  ],
+  "banner": "default",
+  "group": "Warframe",
+  "name": "Official WARFRAME Wiki",
+  "home": "https://wiki.warframe.com/w/Main_Page",
+  "logo": null,
+  "description": "<p>The English WARFRAME Wiki moved from Fandom in January 2025. It is now hosted by Weird Gloop with official support from Digital Extremes.</p>"
+}
 ]
