@@ -278,7 +278,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 		content = rewritten
 	}
 	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
-		content += commentsPlaceholder(wiki, title)
+		content += commentsPlaceholder(wiki, lang, title)
 	}
 	s.layout(w, r, wiki, lang, title, source, content, head, info)
 }

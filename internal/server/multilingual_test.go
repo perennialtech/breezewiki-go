@@ -192,3 +192,23 @@ func TestLocalizedHomepageEscapedTitle(t *testing.T) {
 		t.Fatalf("localized home redirect: %d %q; want %q", got.Code, got.Header().Get("Location"), want)
 	}
 }
+
+func TestLocalizedCommentsUseLanguageEndpoint(t *testing.T) {
+	var commentsPath string
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("controller") == "ArticleCommentsController" {
+			commentsPath = r.URL.Path
+			_ = json.NewEncoder(w).Encode(commentFixture())
+			return
+		}
+		upstreamAPI(w, r)
+	})
+	article := response(s, "GET", "/mlp/es/wiki/Twilight_Sparkle", nil, nil)
+	if article.Code != 200 || !strings.Contains(article.Body.String(), `data-comments-url="/mlp/es/comments?title=Twilight_Sparkle"`) {
+		t.Fatalf("localized article missing matching comments endpoint: HTTP %d; has local endpoint=%v", article.Code, strings.Contains(article.Body.String(), `/mlp/es/comments`))
+	}
+	result := response(s, "GET", "/mlp/es/comments?title=Twilight_Sparkle", nil, nil)
+	if result.Code != 200 || commentsPath != "/es/wikia.php" || !strings.Contains(result.Body.String(), "21 comments") {
+		t.Fatalf("localized comment request: HTTP %d upstream %q", result.Code, commentsPath)
+	}
+}

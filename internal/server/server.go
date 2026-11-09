@@ -25,7 +25,7 @@ import (
 )
 
 var wikiPath = regexp.MustCompile(`^/([a-zA-Z0-9-]{1,50})(?:/(.*))?$`)
-var languagePath = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9-]*)/(wiki(?:/.*)?|search)$`)
+var languagePath = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9-]*)/(wiki(?:/.*)?|search|comments)$`)
 var redirectMessage = regexp.MustCompile(`(?is)<[^>]*class=["'][^"']*\bredirectMsg\b[^"']*["'][^>]*>.*?<a\b[^>]*href=["']([^"']+)["']`)
 
 type Server struct {
@@ -135,7 +135,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.article(w, r, wiki, lang, page, kind)
 			return
 		case rest == "comments":
-			s.comments(w, r, wiki)
+			s.comments(w, r, wiki, lang)
 			return
 		case rest == "search":
 			s.article(w, r, wiki, lang, "", "search")
