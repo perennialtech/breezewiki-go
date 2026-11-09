@@ -37,7 +37,7 @@ function fetchSuggestions(query, setSuggestions) {
 		}))
 	}).catch(() => {
 		hitsDone.add(query)
-		return []
+		return null
 	})
 	hitsPromise.set(query, promise)
 	return promise
@@ -83,8 +83,14 @@ effect(() => {
 	query.value // dependency should always be tracked
 	if (st.peek() === "accepted") return // lock results from changing during navigation
 	st.value = "loading"
-	fetchSuggestions(query.value).then(res => {
-		suggestions.value = res
+	const requested = query.value
+	fetchSuggestions(requested).then(res => {
+		if (res === null && requested === query.value && enterWasLastKey.peek()?.defaultPrevented) {
+			enterWasLastKey.value = false
+			eForm.requestSubmit()
+			return
+		}
+		suggestions.value = res ?? []
 		if (hitsDone.size === hitsPromise.size) {
 			st.value = "ready"
 		}
@@ -103,7 +109,7 @@ effect(() => {
 
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => query.value = e.target.value} onKeyDown=${e => enterWasLastKey.value = e.key === "Enter" && e} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { enterWasLastKey.value = false; query.value = e.target.value }} onKeyDown=${e => enterWasLastKey.value = e.key === "Enter" && e} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)
