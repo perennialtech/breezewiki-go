@@ -19,11 +19,13 @@ type Options struct {
 	Notices                                                                                   []string
 	CurrentURL                                                                                string
 	ExternalNoticeHTML                                                                        string
+	DisableSearchSuggestions                                                                  bool
 }
 
 var (
 	bodyClassRE  = regexp.MustCompile(`<body [^>]*class="([^"]*)"`)
 	iconURLRE    = regexp.MustCompile(`<link rel="(?:shortcut )?icon" href="([^"]*)"`)
+	themeClassRE = regexp.MustCompile(`\btheme-fandomdesktop-(?:light|dark|default)\b`)
 	wikiSuffixRE = regexp.MustCompile(` ?Wiki$`)
 )
 
@@ -121,6 +123,14 @@ func Page(content string, opts Options) (string, error) {
 	if m := bodyClassRE.FindStringSubmatch(opts.HeadHTML); m != nil {
 		bodyClass = m[1]
 	}
+	if theme == "light" || theme == "dark" {
+		selected := "theme-fandomdesktop-" + theme
+		if themeClassRE.MatchString(bodyClass) {
+			bodyClass = themeClassRE.ReplaceAllString(bodyClass, selected)
+		} else {
+			bodyClass += " " + selected
+		}
+	}
 	favicon := "/static/breezewiki-favicon.svg"
 	if m := iconURLRE.FindStringSubmatch(opts.HeadHTML); m != nil {
 		favicon = m[1]
@@ -160,7 +170,11 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString("</script><script type=\"importmap\">")
 	b.Write(imports)
 	b.WriteString("</script>")
-	for _, script := range []string{"search-suggestions.js", "countdown.js", "tabs.js"} {
+	scripts := []string{"countdown.js", "tabs.js"}
+	if !opts.DisableSearchSuggestions {
+		scripts = append([]string{"search-suggestions.js"}, scripts...)
+	}
+	for _, script := range scripts {
 		b.WriteString(`<script type="module" src="/static/`)
 		b.WriteString(script)
 		b.WriteString(`"></script>`)
@@ -234,7 +248,7 @@ func footer(b *strings.Builder, source, app, license, licenseURL string) {
 	} else {
 		b.WriteString("internal-footer")
 	}
-	b.WriteString(`"><div><p><img class="my-logo" src="/static/breezewiki.svg"></p><p><a href="https://gitdab.com/cadence/breezewiki">`)
+	b.WriteString(`"><div><p><img class="my-logo" src="/static/breezewiki.svg"></p><p><a href="https://github.com/perennialtech/breezewiki-go">`)
 	b.WriteString(escaped(app))
 	b.WriteString(` source code</a></p><p><a href="https://docs.breezewiki.com">Documentation and more information</a></p><p><a href="https://lists.sr.ht/~cadence/breezewiki-discuss">Chat / Bug reports / Feature requests</a></p><p>This unofficial instance is based off the `)
 	b.WriteString(escaped(app))

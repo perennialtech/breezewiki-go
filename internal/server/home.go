@@ -49,7 +49,7 @@ var homeTemplate = template.Must(template.New("home").Parse(`<!DOCTYPE html>
 </div></div>
 <footer class="custom-footer"><div class="internal-footer"><div>
 <p><img class="my-logo" src="{{.Logo}}" alt="BreezeWiki"></p>
-<p><a href="https://gitdab.com/cadence/breezewiki">{{.ApplicationName}} source code</a></p>
+<p><a href="https://github.com/perennialtech/breezewiki-go">{{.ApplicationName}} source code</a></p>
 <p><a href="https://docs.breezewiki.com">Documentation and more information</a></p>
 <p><a href="https://lists.sr.ht/~cadence/breezewiki-discuss">Chat / Bug reports / Feature requests</a></p>
 {{if .PromoteFooter}}<p><a href="https://getindie.wiki/">Get Indie Wiki Buddy browser extension - be redirected to BreezeWiki every time!</a></p>{{end}}

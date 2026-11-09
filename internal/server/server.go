@@ -250,7 +250,8 @@ func (s *Server) pageHTML(r *http.Request, wiki, title, source, content, head st
 		CanonicalOrigin: origin, ApplicationName: s.Config.Get("application_name"),
 		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path,
 		CurrentURL: r.URL.RequestURI(), Notices: notices(r),
-		ExternalNoticeHTML: s.genericNotice(r.Context(), wiki, title)})
+		ExternalNoticeHTML:       s.genericNotice(r.Context(), wiki, title),
+		DisableSearchSuggestions: !s.Config.True("feature_search_suggestions")})
 	if err != nil {
 		return "", err
 	}

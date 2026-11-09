@@ -234,7 +234,7 @@ func TestPageLayoutAndScripts(t *testing.T) {
 	}
 	requireContains(t, got,
 		"<!DOCTYPE html>", "Level 1/Level 2/Level 3 | Cool+SampleWiki",
-		`class="skin-fandomdesktop custom-skin bw-tabs-nojs"`,
+		`class="skin-fandomdesktop custom-skin theme-fandomdesktop-dark bw-tabs-nojs"`,
 		`href="https://example.org/favicon.ico"`,
 		`href="https://bw.example/test/wiki/Level_1/Level_2/Level_3"`,
 		`variant=dark`, `href="/static/main.css"`, `src="/static/tabs.js"`,
