@@ -21,14 +21,23 @@ import (
 )
 
 func run() error {
-	var configFile, root string
+	var configFile, root, exampleConfig string
 	var helpConfig bool
 	flag.StringVar(&configFile, "config", "config.ini", "path to config.ini (BW_ environment variables override it)")
 	flag.StringVar(&root, "root", ".", "directory containing static/")
 	flag.BoolVar(&helpConfig, "help-config", false, "print all supported configuration settings and defaults")
+	flag.StringVar(&exampleConfig, "example-config", "", "print a complete example configuration (ini or env)")
 	flag.Parse()
 	if helpConfig {
 		fmt.Print(config.Help())
+		return nil
+	}
+	if exampleConfig != "" {
+		example, err := config.Example(exampleConfig)
+		if err != nil {
+			return err
+		}
+		fmt.Print(example)
 		return nil
 	}
 	cfg, err := config.Load(configFile)
