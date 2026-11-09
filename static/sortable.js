@@ -94,6 +94,7 @@ export function initSortableTables() {
             }
 			cell.addEventListener("click", sort)
 			cell.addEventListener("keydown", event => {
+                if (event.target !== cell) return
 				if (event.key === "Enter" || event.key === " ") {
 					event.preventDefault()
 					sort()
