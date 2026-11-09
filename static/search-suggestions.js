@@ -1,4 +1,4 @@
-import {h, htm, render, signal, computed, effect, useSignalEffect} from "preact"
+import {h, htm, render, signal, effect} from "preact"
 const html = htm.bind(h)
 const classNames = classArr => classArr.filter(el => el).join(" ")
 
@@ -12,11 +12,11 @@ const query = signal("")
 const focus = signal(false)
 const st = signal("ready")
 const suggestions = signal([])
-const enterWasLastKey = signal(false)
+let pendingEnter = false
 
 // processing functions
 
-function fetchSuggestions(query, setSuggestions) {
+function fetchSuggestions(query) {
 	if (query === "") query = "\0"
 	if (hitsPromise.has(query)) return hitsPromise.get(query)
 	const url = new URL(`https://${BWData.wikiname}.fandom.com/api.php`)
@@ -50,12 +50,6 @@ function acceptSuggestion(hit) {
 // suggestion list view
 
 function Suggestion(hit) {
-	useSignalEffect(() => {
-		if (enterWasLastKey.value && st.value === "ready") {
-			enterWasLastKey.value.preventDefault()
-			acceptSuggestion(hit)
-		}
-	})
 	return html`<li class="bw-ss__item"><button type="button" class="bw-ss__button" onClick=${() => acceptSuggestion(hit)}>${hit.title}</button></li>`
 }
 
@@ -84,28 +78,36 @@ effect(() => {
 	fetchSuggestions(requested).then(res => {
 		if (requested !== query.value) return
 		suggestions.value = res ?? []
-		if (!res?.length && enterWasLastKey.peek()?.defaultPrevented) {
-			enterWasLastKey.value = false
-			eForm.requestSubmit()
-		} else {
-			st.value = "ready"
+		st.value = "ready"
+		if (pendingEnter) {
+			pendingEnter = false
+			if (res?.length) acceptSuggestion(res[0])
+			else eForm.requestSubmit()
 		}
 	})
 })
 
 window.addEventListener("pageshow", () => {
+	pendingEnter = false
 	st.value = "ready" // unlock results from changing after returning to page
 })
 
-effect(() => {
-	if (enterWasLastKey.value && (st.value === "loading" || st.value === "accepted")) {
-		enterWasLastKey.value.preventDefault() // wait for results before going
+function onSearchKeyDown(e) {
+	if (e.key !== "Enter") return
+	if (st.value === "accepted") {
+		e.preventDefault()
+	} else if (st.value === "loading") {
+		e.preventDefault()
+		pendingEnter = true
+	} else if (suggestions.value.length) {
+		e.preventDefault()
+		acceptSuggestion(suggestions.value[0])
 	}
-})
+}
 
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { enterWasLastKey.value = false; query.value = e.target.value }} onKeyDown=${e => enterWasLastKey.value = e.key === "Enter" && e} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { pendingEnter = false; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)
