@@ -115,15 +115,18 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 func (s *Server) localizedNamespaceKind(r *http.Request, wiki, lang, page string) string {
 	prefix, _, _ := strings.Cut(page, ":")
 	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
-	for _, namespace := range []struct{ id, kind string }{{"6", "file"}, {"14", "category"}} {
-		name := fandom.String(info, "query", "namespaces", namespace.id, "name")
+	for _, namespace := range []struct {
+		id   int
+		kind string
+	}{{6, "file"}, {14, "category"}} {
+		name := fandom.String(info, "query", "namespaces", strconv.Itoa(namespace.id), "name")
 		if name != "" && strings.EqualFold(prefix, name) {
 			return namespace.kind
 		}
 		aliases, _ := fandom.Value(info, "query", "namespacealiases").([]any)
 		for _, alias := range aliases {
 			id, _ := fandom.Value(alias, "id").(float64)
-			if int(id) == func() int { n, _ := strconv.Atoi(namespace.id); return n }() && strings.EqualFold(prefix, fandom.String(alias, "alias")) {
+			if int(id) == namespace.id && strings.EqualFold(prefix, fandom.String(alias, "alias")) {
 				return namespace.kind
 			}
 		}
