@@ -77,6 +77,26 @@ func TestWikiLinkAndImages(t *testing.T) {
 	}
 }
 
+func TestCommunityInterwikiLinks(t *testing.T) {
+	got := mustRewrite(t, `<div>
+		<a href="https://community.fandom.com/wiki/w:c:zelda:Link">Article</a>
+		<a href="https://community.fandom.com/wiki/w:c:battlefordreamisland:Battle_for_Dream_Island?oldid=42#Plot">Section</a>
+		<a href="https://community.fandom.com/wiki/w:c:mlp%3ACherry_Berry">Wikidata article</a>
+		<a href="https://community.fandom.com/wiki/w:c:naruto-fandom%3AMangeky%C5%8D_Sharingan">Encoded title</a>
+		<a href="https://community.fandom.com/wiki/w:c:battlefordreamisland">Wiki</a>
+		<a href="https://community.fandom.com/wiki/Main_Page">Community</a>
+		<a href="https://example.org/wiki/w:c:zelda:Link">External</a>
+	</div>`)
+	requireContains(t, got,
+		`href="/zelda/wiki/Link"`,
+		`href="/battlefordreamisland/wiki/Battle_for_Dream_Island?oldid=42#Plot"`,
+		`href="/mlp/wiki/Cherry_Berry"`,
+		`href="/naruto-fandom/wiki/Mangeky%C5%8D_Sharingan"`,
+		`href="/battlefordreamisland/wiki/"`,
+		`href="/community/wiki/Main_Page"`,
+		`href="https://example.org/wiki/w:c:zelda:Link"`)
+}
+
 func TestStrictProxyUpstreamExamples(t *testing.T) {
 	got, err := RewriteWithProxy(`<div style="background-image:url('https://static.wikia.nocookie.net/bg.png')">
 		<a class="image image-thumbnail" href="https://static.wikia.nocookie.net/original.png">
@@ -292,14 +312,22 @@ func TestPageDefaultsAndNotices(t *testing.T) {
 }
 
 func TestIndependentWikiDataset(t *testing.T) {
-	if len(independentWikis) != 122 {
-		t.Fatalf("expected 122 upstream wiki aliases, got %d", len(independentWikis))
+	if len(independentWikis) != 123 {
+		t.Fatalf("expected 123 wiki aliases, got %d", len(independentWikis))
 	}
-	for _, wiki := range []string{"pokemon", "terraria", "runescape", "zelda", "undertale", "deltarune", "rain-web-comic", "teamfortress"} {
+	for _, wiki := range []string{"pokemon", "terraria", "runescape", "zelda", "undertale", "deltarune", "rain-web-comic", "teamfortress", "warframe"} {
 		if _, ok := independentWikis[wiki]; !ok {
 			t.Fatalf("missing upstream independent wiki %q", wiki)
 		}
 	}
+}
+
+func TestWarframeMigrationNotice(t *testing.T) {
+	got, err := Page("<p>Content</p>", Options{Wiki: "warframe", Title: "Excalibur"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, "Official WARFRAME Wiki", "wiki.warframe.com/w/Special:Search?search=Excalibur", "forums.warframe.com/topic/1439599")
 }
 
 func TestPageEscapesMetadata(t *testing.T) {
@@ -334,4 +362,12 @@ func TestHistoryURLReservedArticleTitle(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireContains(t, got, `href="https://spongebob.fandom.com/wiki/Are_You_Happy_Now%3F?action=history"`)
+}
+
+func TestWikiHomeNavigation(t *testing.T) {
+	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `<a href="/example/">Wiki home</a>`)
 }

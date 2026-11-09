@@ -158,8 +158,11 @@ func (s *Server) subdomain(w http.ResponseWriter, r *http.Request) bool {
 	if strings.HasSuffix(host, "."+u.Hostname()) {
 		wiki := strings.TrimSuffix(host, "."+u.Hostname())
 		if !strings.Contains(wiki, ".") && wiki != "" {
-			// Upstream does not carry the query string to this redirect.
-			s.redirect(w, strings.TrimRight(origin, "/")+"/"+wiki+"/"+strings.TrimPrefix(r.URL.Path, "/"))
+			dest := strings.TrimRight(origin, "/") + "/" + wiki + r.URL.EscapedPath()
+			if r.URL.RawQuery != "" || r.URL.ForceQuery {
+				dest += "?" + r.URL.RawQuery
+			}
+			s.redirect(w, dest)
 			return true
 		}
 	}
@@ -202,9 +205,10 @@ func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, title, sou
 		s.internalError(w, err)
 		return
 	}
-	if r.URL.Query().Get("redirect") != "no" {
+	if r.Method != http.MethodPost && r.URL.Query().Get("redirect") != "no" {
 		if m := redirectMessage.FindStringSubmatch(out); m != nil {
-			w.Header().Set("Refresh", "0;url="+html.UnescapeString(m[1]))
+			s.redirect(w, html.UnescapeString(m[1]))
+			return
 		}
 	}
 	s.html(w, 200, out)

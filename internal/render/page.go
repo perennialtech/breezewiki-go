@@ -216,7 +216,9 @@ func Page(content string, opts Options) (string, error) {
 	}
 	b.WriteString(`<div class="custom-top"><h1 class="page-title">`)
 	titleBreadcrumbs(&b, opts.Title)
-	b.WriteString(`</h1><nav class="sitesearch">`)
+	b.WriteString(`</h1><nav class="sitesearch"><a href="/`)
+	b.WriteString(escaped(opts.Wiki))
+	b.WriteString(`/">Wiki home</a>`)
 	if strings.Contains(opts.Path, "/wiki/") && !strings.Contains(opts.Path, "/wiki/Special:") && opts.SourceURL != "" {
 		b.WriteString(`<a rel="nofollow" href="`)
 		b.WriteString(escaped(historyURL(opts)))
