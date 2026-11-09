@@ -110,7 +110,9 @@ effect(() => {
     })
 })
 
-window.addEventListener("pageshow", () => {
+window.addEventListener("pageshow", event => {
+    if (!event.persisted) return
+    pendingEnter = false
     st.value = "ready"
 })
 
