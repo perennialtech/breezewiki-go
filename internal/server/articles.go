@@ -269,6 +269,10 @@ func (s *Server) randomPage(w http.ResponseWriter, r *http.Request, wiki string)
 	params := []fandom.Param{param("action", "query"), param("list", "random"),
 		param("rnnamespace", "0"), param("rnlimit", "1"),
 		param("formatversion", "2"), param("format", "json")}
+	if s.Config.True("feature_jsonp::enabled") {
+		s.randomPageJSONP(w, r, wiki, params)
+		return
+	}
 	res, err := s.Fandom.API(r.Context(), wiki, params, theme(r))
 	if err != nil {
 		s.internalError(w, wrapError("Fandom random", err))
@@ -297,6 +301,21 @@ func (s *Server) randomPage(w http.ResponseWriter, r *http.Request, wiki string)
 		return
 	}
 	s.redirect(w, linkTo(wiki, fandom.String(items[0], "title")))
+}
+
+func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki string, params []fandom.Param) {
+	q := url.Values{}
+	for _, p := range params {
+		q.Add(p.Key, p.Value)
+	}
+	q.Set("callback", "showRandomPage")
+	var b strings.Builder
+	b.WriteString(`<p id="random-status">Finding a random page…</p><script>function showRandomPage(data) {`)
+	b.WriteString(`const title = data.query?.random?.[0]?.title; if (!title) { document.getElementById("random-status").textContent = "No random page was found."; return; } `)
+	b.WriteString(`location.replace(` + jsonString("/"+wiki+"/wiki/") + ` + title.replaceAll(" ", "_").split("/").map(encodeURIComponent).join("/"));`)
+	b.WriteString(`}</script><script async src="https://` + wiki + `.fandom.com/api.php?` + quote(q.Encode()))
+	b.WriteString(`" onerror="document.getElementById('random-status').textContent='Unable to load a random page.'"></script>`)
+	s.layout(w, r, wiki, "Random page", sourceURL(wiki, "Special:Random"), b.String(), "", fandom.DefaultSiteInfo)
 }
 
 func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, page, kind, source, query string) {

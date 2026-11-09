@@ -57,6 +57,18 @@ func TestSpecialPages(t *testing.T) {
 	}
 }
 
+func TestRandomJSONP(t *testing.T) {
+	s, _ := mockServer(t, nil, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("random page should load through browser JSONP, got %s", r.URL)
+	})
+	page := response(s, "GET", "/test/wiki/Special:Random", nil, nil)
+	for _, want := range []string{"showRandomPage", "callback=showRandomPage", "rnnamespace=0", "rnlimit=1", "location.replace"} {
+		if page.Code != 200 || !strings.Contains(page.Body.String(), want) {
+			t.Errorf("random JSONP %d missing %q", page.Code, want)
+		}
+	}
+}
+
 func TestAllPagesJSONP(t *testing.T) {
 	s, _ := mockServer(t, nil, upstreamAPI)
 	page := response(s, "GET", "/test/wiki/Special:AllPages?from=B", nil, nil)
