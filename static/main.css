@@ -178,9 +178,6 @@ img {
     scrollbar-gutter: stable;
     overscroll-behavior-x: contain;
 }
-.table-scroller > table {
-    min-width: 100%;
-}
 
 /* float right. reorganised from their sheet */
 .tright {
