@@ -53,7 +53,7 @@ type commentNode struct {
 	} `json:"marks"`
 }
 
-func commentContent(model string, post commentPost) string {
+func commentContent(model string, post commentPost, strictProxy bool) string {
 	var doc commentNode
 	if err := json.Unmarshal([]byte(model), &doc); err != nil {
 		return ""
@@ -75,7 +75,7 @@ func commentContent(model string, post commentPost) string {
 			tag = "ol"
 		case "listItem":
 			tag = "li"
-		case "codeBlock":
+		case "code_block":
 			tag = "pre"
 		case "hardBreak":
 			b.WriteString("<br>")
@@ -83,7 +83,11 @@ func commentContent(model string, post commentPost) string {
 		case "image":
 			for _, image := range post.Attachments.ContentImages {
 				if image.Position == n.Attrs.ID && fandom.AllowedProxyURL(image.URL) {
-					fmt.Fprintf(&b, `<img loading="lazy" src="%s" alt="Comment image">`, html.EscapeString(image.URL))
+					src := image.URL
+					if strictProxy {
+						src = "/proxy?dest=" + url.QueryEscape(src)
+					}
+					fmt.Fprintf(&b, `<img loading="lazy" src="%s" alt="Comment image">`, html.EscapeString(src))
 					break
 				}
 			}
@@ -123,7 +127,7 @@ func commentContent(model string, post commentPost) string {
 	return b.String()
 }
 
-func writeComment(b *strings.Builder, post commentPost) {
+func writeComment(b *strings.Builder, post commentPost, strictProxy bool) {
 	b.WriteString(`<div class="bw-comments__post"><div class="bw-comments__meta"><strong>`)
 	author := post.CreatedBy.Name
 	if author == "" {
@@ -136,7 +140,7 @@ func writeComment(b *strings.Builder, post commentPost) {
 		fmt.Fprintf(b, ` <time datetime="%s">%s</time>`, at.Format(time.RFC3339), at.Format("2006-01-02"))
 	}
 	b.WriteString(`</div><div class="bw-comments__body">`)
-	b.WriteString(commentContent(post.JSONModel, post))
+	b.WriteString(commentContent(post.JSONModel, post, strictProxy))
 	b.WriteString(`</div></div>`)
 }
 
@@ -190,12 +194,12 @@ func (s *Server) comments(w http.ResponseWriter, r *http.Request, wiki string) {
 	}
 	for _, thread := range data.Threads {
 		b.WriteString("<li>")
-		writeComment(&b, thread.FirstPost)
+		writeComment(&b, thread.FirstPost, s.Config.True("strict_proxy"))
 		if len(thread.Posts) > 0 {
 			b.WriteString(`<ol class="bw-comments__replies">`)
 			for _, post := range thread.Posts {
 				b.WriteString("<li>")
-				writeComment(&b, post)
+				writeComment(&b, post, s.Config.True("strict_proxy"))
 				b.WriteString("</li>")
 			}
 			b.WriteString("</ol>")

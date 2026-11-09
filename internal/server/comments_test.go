@@ -94,3 +94,31 @@ func TestCommentsFailureDoesNotBreakArticle(t *testing.T) {
 		t.Fatalf("comment fetch failure broke articles: HTTP %d", article.Code)
 	}
 }
+
+func TestCommentImageUsesStrictProxyAndCodeBlock(t *testing.T) {
+	imageURL := "https://static.wikia.nocookie.net/test-image"
+	s, _ := mockServer(t, map[string]string{"strict_proxy": "true"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/wikia.php" {
+			upstreamAPI(w, r)
+			return
+		}
+		data := commentFixture()
+		thread := data["threads"].([]any)[0].(map[string]any)
+		post := thread["firstPost"].(map[string]any)
+		post["jsonModel"] = `{"type":"doc","content":[{"type":"code_block","content":[{"type":"text","text":"first\n  second"}]},{"type":"image","attrs":{"id":0}}]}`
+		post["attachments"] = map[string]any{"contentImages": []any{map[string]any{"id": 210, "position": 0, "url": imageURL}}}
+		_ = json.NewEncoder(w).Encode(data)
+	})
+	got := response(s, "GET", "/test/comments?title=Page", nil, nil)
+	if got.Code != 200 {
+		t.Fatalf("HTTP %d", got.Code)
+	}
+	for _, want := range []string{`src="/proxy?dest=https%3A%2F%2Fstatic.wikia.nocookie.net%2Ftest-image"`, "<pre>first\n  second</pre>"} {
+		if !strings.Contains(got.Body.String(), want) {
+			t.Errorf("missing %q in %s", want, got.Body.String())
+		}
+	}
+	if strings.Contains(got.Body.String(), `src="https://static.wikia.nocookie.net`) {
+		t.Fatal("image bypassed strict proxy")
+	}
+}
