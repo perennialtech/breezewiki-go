@@ -343,6 +343,27 @@ func TestPageEscapesMetadata(t *testing.T) {
 	requireAbsent(t, got, `<title><script>`)
 }
 
+func TestArticleHistoryLink(t *testing.T) {
+	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article", SourceURL: "https://example.fandom.com/wiki/Article"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, out, `href="https://example.fandom.com/wiki/Article?action=history">History</a>`)
+	search, err := Page("Search", Options{Wiki: "example", Title: "Search", Path: "/example/search", SourceURL: "https://example.fandom.com/wiki/Special:Search"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireAbsent(t, search, `>History</a>`)
+}
+
+func TestHistoryURLReservedArticleTitle(t *testing.T) {
+	got, err := Page("<p>Test</p>", Options{Wiki: "spongebob", Title: "Are You Happy Now?", Path: "/spongebob/wiki/Are_You_Happy_Now?", SourceURL: "https://spongebob.fandom.com/wiki/Are_You_Happy_Now?"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireContains(t, got, `href="https://spongebob.fandom.com/wiki/Are_You_Happy_Now%3F?action=history"`)
+}
+
 func TestWikiHomeNavigation(t *testing.T) {
 	out, err := Page("<p>Article</p>", Options{Wiki: "example", Title: "Article", Path: "/example/wiki/Article"})
 	if err != nil {
