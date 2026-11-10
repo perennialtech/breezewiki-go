@@ -47,7 +47,7 @@ func endpoints(kind, path, query string) []endpoint {
 		}
 	case "file":
 		params := []fandom.Param{param("action", "query"), param("titles", path),
-			param("prop", "imageinfo|fileusage"), param("iiprop", "timestamp|user|canonicaltitle|url|size|mime|mediatype"),
+			param("prop", "imageinfo|fileusage"), param("iiprop", "timestamp|user|canonicaltitle|url|size|mime|mediatype|metadata"),
 			param("iilocalonly", "true"), param("fulimit", "max"), param("format", "json"), param("formatversion", "2")}
 		if query != "" {
 			params = append(params, param("fucontinue", query))
@@ -130,7 +130,7 @@ func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, lang
 }
 
 func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string, data map[string]map[string]any, info map[string]any) {
-	var content, title, head string
+	var content, title, head, filePlayer string
 	switch kind {
 	case "allpages":
 		title = "All pages"
@@ -224,9 +224,29 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 		case "AUDIO":
 			b.WriteString("<audio src=\"" + quote(display) + "\" controls></audio>")
 		case "VIDEO":
-			b.WriteString("<video src=\"" + quote(display) + "\" controls></video>")
+			if fandom.String(img, "mime") == "video/youtube" {
+				var videoID string
+				for _, item := range asList(img["metadata"]) {
+					if fandom.String(item, "name") == "videoId" {
+						videoID = fandom.String(item, "value")
+						break
+					}
+				}
+				if videoID != "" {
+					filePlayer = `<iframe title="YouTube video" src="https://www.youtube-nocookie.com/embed/` +
+						quote(url.PathEscape(videoID)) +
+						`" width="560" height="315" style="max-width:100%" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
+					b.WriteString(`<p><a href="https://www.youtube.com/watch?v=` + quote(url.QueryEscape(videoID)) + `">Watch on YouTube</a></p>`)
+				} else {
+					b.WriteString(`<p><a href="` + quote(source) + `">Watch on Fandom</a></p>`)
+				}
+			} else {
+				b.WriteString("<video src=\"" + quote(display) + "\" controls></video>")
+			}
 		}
-		b.WriteString("<p><a href=\"" + quote(display) + "\">Download original file</a></p>")
+		if fandom.String(img, "mime") != "video/youtube" {
+			b.WriteString("<p><a href=\"" + quote(display) + "\">Download original file</a></p>")
+		}
 		description := fandom.ParseText(p)
 		doc, err := goquery.NewDocumentFromReader(strings.NewReader(description))
 		if len(asList(fandom.Value(p, "parse", "sections"))) > 0 ||
@@ -281,6 +301,11 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 			return
 		}
 		content = rewritten
+	}
+	// Generic article rewriting replaces iframes with links. The file player
+	// uses a fixed provider URL assembled from the upstream video ID.
+	if filePlayer != "" {
+		content = filePlayer + content
 	}
 	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
 		content += commentsPlaceholder(wiki, lang, title)

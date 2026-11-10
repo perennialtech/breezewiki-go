@@ -49,6 +49,61 @@ func TestFileWithoutDescriptionKeepsCopyrightWarning(t *testing.T) {
 	}
 }
 
+func TestFileEmbeddedYouTubeVideo(t *testing.T) {
+	const title = "File:GODDESS_OF_VICTORY-_NIKKE_-_Doki_Doki_NIKKE_Global_Popularity_Poll_-_Syuen_Support_Video"
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("prop") != "imageinfo|fileusage" {
+			upstreamAPI(w, r)
+			return
+		}
+		if !strings.Contains(r.URL.Query().Get("iiprop"), "metadata") {
+			t.Error("file imageinfo must request video metadata")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"query": map[string]any{"pages": []any{map[string]any{
+			"imageinfo": []any{map[string]any{
+				"mediatype": "VIDEO", "mime": "video/youtube",
+				"url":  "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/9/9a/Video",
+				"user": "Wayld02", "metadata": []any{map[string]any{"name": "videoId", "value": "jySHT8J2BNQ"}},
+			}},
+		}}}})
+	})
+	got := response(s, "GET", "/test/wiki/"+title, nil, nil)
+	if got.Code != http.StatusOK {
+		t.Fatalf("embedded video: HTTP %d", got.Code)
+	}
+	for _, want := range []string{`<iframe`, `https://www.youtube-nocookie.com/embed/jySHT8J2BNQ`, `https://www.youtube.com/watch?v=jySHT8J2BNQ`, `Uploaded by`} {
+		if !strings.Contains(got.Body.String(), want) {
+			t.Errorf("embedded video missing %q", want)
+		}
+	}
+	for _, unwanted := range []string{`<video`, `Download original file`, `class="iframe-alternative"`} {
+		if strings.Contains(got.Body.String(), unwanted) {
+			t.Errorf("embedded video incorrectly renders %q", unwanted)
+		}
+	}
+}
+
+func TestFileUploadedVideoStillDownloads(t *testing.T) {
+	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("prop") != "imageinfo|fileusage" {
+			upstreamAPI(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"query": map[string]any{"pages": []any{map[string]any{
+			"imageinfo": []any{map[string]any{
+				"mediatype": "VIDEO", "mime": "video/mp4",
+				"url":  "https://static.wikia.nocookie.net/nikke-goddess-of-victory-international/images/0/08/Syuen_Introduction_Video.mp4",
+				"user": "Oldbonniegamer",
+			}},
+		}}}})
+	})
+	got := response(s, "GET", "/test/wiki/File:Syuen_Introduction_Video.mp4", nil, nil)
+	if got.Code != http.StatusOK || !strings.Contains(got.Body.String(), `<video`) ||
+		!strings.Contains(got.Body.String(), `Download original file`) || strings.Contains(got.Body.String(), `<iframe`) {
+		t.Fatalf("uploaded video playback or download changed: HTTP %d", got.Code)
+	}
+}
+
 func TestFileUsageContinuation(t *testing.T) {
 	var usageFrom string
 	s, _ := mockServer(t, map[string]string{"feature_jsonp::enabled": "false"}, func(w http.ResponseWriter, r *http.Request) {
