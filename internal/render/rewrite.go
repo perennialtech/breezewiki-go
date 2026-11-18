@@ -3,6 +3,7 @@ package render
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -174,7 +175,10 @@ func rewriteElement(n *html.Node, wiki, lang string, strict, withoutCard bool) *
 			return removed()
 		}
 	case (hasClass(n, "pi-item") || hasClass(n, "wikia-gallery-item")) &&
-		containsDescendant(n, func(c *html.Node) bool { return hasClass(c, "video-thumbnail") }):
+		containsDescendant(n, func(c *html.Node) bool {
+			href, _ := getAttr(c, "href")
+			return hasClass(c, "video-thumbnail") && href == ""
+		}):
 		return removed()
 	case n.Data == "span" && hasClass(n, "mw-editsection"):
 		return removed()
@@ -185,7 +189,7 @@ func rewriteElement(n *html.Node, wiki, lang string, strict, withoutCard bool) *
 		return out
 	case n.Data == "noscript" && noscriptImage(n):
 		return removed()
-	case hasClass(n, "reviews"), hasClass(n, "trfc161"):
+	case hasClass(n, "reviews"), hasClass(n, "trfc161"), hasClass(n, "fandom-ad-placeholder"), hasClass(n, "fandom-ad-label"):
 		return removed()
 	case toggleClass(n):
 		return removed()
@@ -246,7 +250,8 @@ func rewriteElement(n *html.Node, wiki, lang string, strict, withoutCard bool) *
 			out.AppendChild(externalLinkIcon())
 		}
 	}
-	if n.Data == "table" && (hasClass(n, "wikitable") || hasClass(n, "va-table")) {
+	if n.Data == "table" && (hasClass(n, "wikitable") || hasClass(n, "va-table") ||
+		hasClass(n, "fandom-table") || hasClass(n, "article-table")) {
 		if _, ok := getAttr(n, "data-scrolling"); !ok {
 			wrap := element("div", attr("class", "table-scroller"), attr("role", "region"), attr("aria-label", "Scrollable table"), attr("tabindex", "0"))
 			wrap.AppendChild(out)
@@ -295,6 +300,9 @@ func noscriptImage(n *html.Node) bool {
 }
 
 func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
+	if hasClass(n, "toctogglecheckbox") {
+		setAttr(n, "aria-label", "Toggle table of contents")
+	}
 	if class, ok := getAttr(n, "class"); ok {
 		class = strings.ReplaceAll(class, "pi-collapse-closed", "")
 		class = strings.ReplaceAll(class, "pi-collapse", "")
@@ -306,7 +314,13 @@ func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 		setAttr(n, "controls", "")
 	}
 	if id, ok := getAttr(n, "id"); ok && strings.HasPrefix(id, "mw-customcollapsible") {
-		setAttr(n, "style", "display:block")
+		if style, ok := getAttr(n, "style"); ok {
+			display := "display:block"
+			if n.DataAtom == atom.Tr {
+				display = ""
+			}
+			setAttr(n, "style", hiddenStyleRE.ReplaceAllString(style, display))
+		}
 	}
 	if dataSrc, ok := getAttr(n, "data-src"); ok {
 		setAttr(n, "src", dataSrc)
@@ -319,7 +333,7 @@ func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 				setAttr(n, "style", style)
 			}
 		}
-		if hasClass(n, "image-thumbnail") || hasClass(n, "image") {
+		if hasClass(n, "image-thumbnail") || hasClass(n, "image") || hasClass(n, "internal") {
 			if href, ok := getAttr(n, "href"); ok {
 				setAttr(n, "href", proxyURL(href))
 			}
@@ -329,6 +343,12 @@ func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 		}
 	}
 	if href, ok := getAttr(n, "href"); ok {
+		if strings.HasPrefix(href, "//") {
+			href = "https:" + href
+		}
+		if n.Data == "a" {
+			href = wikiUtilityURL(href, wiki, lang)
+		}
 		if parts := communityInterwikiRE.FindStringSubmatch(href); parts != nil {
 			href = "/" + parts[1] + "/wiki/" + parts[2]
 		} else if parts := wikiLinkRE.FindStringSubmatch(href); parts != nil {
@@ -343,6 +363,13 @@ func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 			href = prefix + href
 		}
 		setAttr(n, "href", href)
+	}
+	if hasClass(n, "video-thumbnail") {
+		href, _ := getAttr(n, "href")
+		label, _ := getAttr(n, "title")
+		if href != "" && label != "" {
+			setAttr(n, "aria-label", label)
+		}
 	}
 	if hasClass(n, "image") {
 		rel, _ := getAttr(n, "rel")
@@ -359,6 +386,45 @@ func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
 		}
 	}
 	removeAttr(n, "srcset")
+}
+
+// Root-level Fandom routes found in rendered wiki content have different
+// shells from MediaWiki articles. Keep their original destination or map the
+// legacy index.php title form to the equivalent wiki URL.
+func wikiUtilityURL(href, wiki, lang string) string {
+	origin := "https://" + wiki + ".fandom.com"
+	if strings.HasPrefix(href, origin+"/") {
+		local := strings.TrimPrefix(href, origin)
+		if local == "/f" || strings.HasPrefix(local, "/f/") || strings.HasPrefix(local, "/f?") {
+			href = local
+		}
+	}
+	if !strings.HasPrefix(href, "/") || strings.HasPrefix(href, "//") {
+		return href
+	}
+	u, err := url.Parse(href)
+	if err != nil {
+		return href
+	}
+	switch {
+	case u.Path == "/f" || strings.HasPrefix(u.Path, "/f/"):
+		return "/" + wiki + href
+	case u.Path == "/Blog:Recent_posts":
+		return "/wiki" + href
+	case u.Path == "/index.php" || u.Path == "/w/index.php" || u.Path == "/"+lang+"/index.php":
+		q := u.Query()
+		title := q.Get("title")
+		if title == "" {
+			return origin + href
+		}
+		q.Del("title")
+		u.Path = "/wiki/" + strings.ReplaceAll(title, " ", "_")
+		u.RawPath = ""
+		u.RawQuery = q.Encode()
+		return u.String()
+	default:
+		return href
+	}
 }
 
 func proxyURL(raw string) string {

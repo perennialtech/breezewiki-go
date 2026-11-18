@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/perennialtech/breezewiki-go"
 	"github.com/perennialtech/breezewiki-go/internal/config"
@@ -33,6 +34,7 @@ type Server struct {
 	Fandom       *fandom.Client
 	StaticDir    string
 	genericCache genericCache
+	navigation   sync.Map
 }
 
 // New serves embedded assets by default. Set StaticDir to override them from disk.
@@ -113,6 +115,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		if language := languagePath.FindStringSubmatch(rest); language != nil && language[1] != "wiki" {
 			lang, rest = language[1], language[2]
 		}
+		if page, ok := strings.CutPrefix(rest, "wiki/"); ok && page != "" &&
+			(r.Method == http.MethodGet || r.Method == http.MethodHead) && s.readView(w, r, wiki, lang, page) {
+			return
+		}
 		switch {
 		case rest == "wiki/Special:Random":
 			s.randomPage(w, r, wiki, lang)
@@ -142,6 +148,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				kind = namespaceKind(siteinfo, page)
 			}
 			s.article(w, r, wiki, lang, page, kind)
+			return
+		case rest == "f" || strings.HasPrefix(rest, "f/"):
+			s.discussion(w, r, wiki, rest)
 			return
 		case rest == "comments":
 			s.comments(w, r, wiki, lang)
@@ -318,10 +327,10 @@ func (s *Server) page(w http.ResponseWriter, r *http.Request, wiki, lang, title,
 		s.internalError(w, err)
 		return
 	}
-	s.layout(w, r, wiki, lang, title, source, rewritten, head, siteinfo)
+	s.layout(w, r, wiki, lang, title, source, rewritten, head, "", siteinfo)
 }
-func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, lang, title, source, content, head string, siteinfo map[string]any) {
-	out, err := s.pageHTML(r, wiki, lang, title, source, content, head, siteinfo)
+func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, lang, title, source, content, head, navigation string, siteinfo map[string]any) {
+	out, err := s.pageHTML(r, wiki, lang, title, source, content, head, navigation, siteinfo)
 	if err != nil {
 		s.internalError(w, err)
 		return
@@ -334,7 +343,7 @@ func (s *Server) layout(w http.ResponseWriter, r *http.Request, wiki, lang, titl
 	}
 	s.html(w, 200, out)
 }
-func (s *Server) pageHTML(r *http.Request, wiki, lang, title, source, content, head string, siteinfo map[string]any) (string, error) {
+func (s *Server) pageHTML(r *http.Request, wiki, lang, title, source, content, head, navigation string, siteinfo map[string]any) (string, error) {
 	if siteinfo == nil {
 		siteinfo = fandom.DefaultSiteInfo
 	}
@@ -344,6 +353,7 @@ func (s *Server) pageHTML(r *http.Request, wiki, lang, title, source, content, h
 		Theme: theme(r), SiteInfo: siteinfo, HeadHTML: head, Path: r.URL.Path, EscapedPath: r.URL.EscapedPath(),
 		CurrentURL: r.URL.RequestURI(), Notices: notices(r),
 		ExternalNoticeHTML:       s.genericNotice(r.Context(), wiki, title),
+		WikiNavigationHTML:       navigation,
 		DisableSearchSuggestions: !s.Config.True("feature_search_suggestions"),
 		StaticURL:                s.staticURL})
 	if err != nil {

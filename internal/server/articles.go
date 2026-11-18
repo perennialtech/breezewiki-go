@@ -41,10 +41,12 @@ func endpoints(kind, path, query string) []endpoint {
 	case "wiki":
 		return []endpoint{parseEndpoint(path, "categories")}
 	case "category":
-		return []endpoint{
-			{"membersdata", []fandom.Param{param("action", "query"), param("list", "categorymembers"), param("cmtitle", path), param("cmlimit", "max"), param("formatversion", "2"), param("format", "json")}},
-			{"pagedata", parseEndpoint(path, "").params},
+		params := []fandom.Param{param("action", "query"), param("list", "categorymembers"), param("cmtitle", path),
+			param("cmlimit", "max"), param("formatversion", "2"), param("format", "json")}
+		if query != "" {
+			params = append(params, param("cmcontinue", query))
 		}
+		return []endpoint{{"membersdata", params}, {"pagedata", parseEndpoint(path, "").params}}
 	case "file":
 		params := []fandom.Param{param("action", "query"), param("titles", path),
 			param("prop", "imageinfo|fileusage"), param("iiprop", "timestamp|user|canonicaltitle|url|size|mime|mediatype|metadata"),
@@ -62,7 +64,7 @@ func endpoints(kind, path, query string) []endpoint {
 }
 func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind string) {
 	q := requestParam(r, "q")
-	if kind == "allpages" || kind == "file" {
+	if kind == "allpages" || kind == "file" || kind == "category" {
 		q = requestParam(r, "from")
 	}
 	source := sourceURL(wiki, lang, page)
@@ -109,6 +111,9 @@ func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, lang, pag
 		data[e.name] = js
 	}
 	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
+	if hasWikiNavigation(wiki, lang) {
+		data["navigation"] = s.loadNavigation(r, wiki)
+	}
 	s.renderArticle(w, r, wiki, lang, page, kind, source, q, data, info)
 }
 
@@ -121,7 +126,7 @@ func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, lang
 	msg := "<p>Sorry! Fandom isn't allowing BreezeWiki to show pages right now.</p><p>We'll automatically try again in 30 seconds, so please stay on this page and be patient.</p><p><small>In a hurry? <a href=\"" + quote(source) + "\">Click here to read the page on Fandom.</a></small></p>"
 	// Preserve the intended status even if render.Page fails.
 	info := fandom.DefaultSiteInfo
-	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, msg, "", info)
+	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, msg, "", "", info)
 	if err != nil {
 		s.internalError(w, err)
 		return
@@ -184,7 +189,11 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 			t := fandom.String(m, "title")
 			b.WriteString("<li><a href=\"" + quote(linkTo(wiki, lang, t)) + "\">" + quote(t) + "</a></li>")
 		}
-		b.WriteString("</ul></div>")
+		b.WriteString("</ul>")
+		if next := fandom.String(data["membersdata"], "continue", "cmcontinue"); next != "" {
+			b.WriteString(`<p><a href="` + quote(linkTo(wiki, lang, title)+"?from="+url.QueryEscape(next)) + `">More category members</a></p>`)
+		}
+		b.WriteString("</div>")
 		content += b.String()
 	case "file":
 		p := data["wikipage"]
@@ -212,9 +221,13 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 		if s.Config.True("strict_proxy") && fandom.AllowedProxyURL(imageURL) {
 			display = "/proxy?dest=" + url.QueryEscape(imageURL)
 		}
+		mediaName := title
+		if _, name, ok := strings.Cut(title, ":"); ok {
+			mediaName = strings.TrimSpace(name)
+		}
 		switch fandom.String(img, "mediatype") {
 		case "BITMAP", "DRAWING":
-			b.WriteString("<img src=\"" + quote(display) + "\"")
+			b.WriteString(`<img src="` + quote(display) + `" alt="` + quote(mediaName) + `"`)
 			for _, dim := range []string{"width", "height"} {
 				if n, ok := img[dim].(float64); ok {
 					b.WriteString(" " + dim + "=\"" + fmt.Sprintf("%.0f", n) + "\"")
@@ -222,7 +235,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 			}
 			b.WriteString(">")
 		case "AUDIO":
-			b.WriteString("<audio src=\"" + quote(display) + "\" controls></audio>")
+			b.WriteString(`<audio src="` + quote(display) + `" aria-label="` + quote(mediaName) + `" controls></audio>`)
 		case "VIDEO":
 			if fandom.String(img, "mime") == "video/youtube" {
 				var videoID string
@@ -233,7 +246,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 					}
 				}
 				if videoID != "" {
-					filePlayer = `<iframe title="YouTube video" src="https://www.youtube-nocookie.com/embed/` +
+					filePlayer = `<iframe title="` + quote(mediaName) + ` (YouTube)" src="https://www.youtube-nocookie.com/embed/` +
 						quote(url.PathEscape(videoID)) +
 						`" width="560" height="315" style="max-width:100%" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
 					b.WriteString(`<p><a href="https://www.youtube.com/watch?v=` + quote(url.QueryEscape(videoID)) + `">Watch on YouTube</a></p>`)
@@ -241,7 +254,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 					b.WriteString(`<p><a href="` + quote(source) + `">Watch on Fandom</a></p>`)
 				}
 			} else {
-				b.WriteString("<video src=\"" + quote(display) + "\" controls></video>")
+				b.WriteString(`<video src="` + quote(display) + `" aria-label="` + quote(mediaName) + `" controls></video>`)
 			}
 		}
 		if fandom.String(img, "mime") != "video/youtube" {
@@ -307,10 +320,19 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 	if filePlayer != "" {
 		content = filePlayer + content
 	}
+	parsed := data["wikipage"]
+	if kind == "category" {
+		parsed = data["pagedata"]
+	}
+	navigation, err := rewriteContent(articleNavigation(wiki, lang, title, info, data["navigation"], parsed), wiki, lang, false)
+	if err != nil {
+		s.internalError(w, err)
+		return
+	}
 	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
 		content += commentsPlaceholder(wiki, lang, title)
 	}
-	s.layout(w, r, wiki, lang, title, source, content, head, info)
+	s.layout(w, r, wiki, lang, title, source, content, head, navigation, info)
 }
 func asList(v any) []any { a, _ := v.([]any); return a }
 
@@ -359,7 +381,7 @@ func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki, l
 	}
 	q.Set("callback", "showRandomPage")
 	var b strings.Builder
-	b.WriteString(`<p id="random-status">Finding a random page…</p><script>function showRandomPage(data) {`)
+	b.WriteString(`<p id="random-status" role="status">Finding a random page…</p><script>function showRandomPage(data) {`)
 	b.WriteString(`const title = data.query?.random?.[0]?.title; if (!title) { document.getElementById("random-status").textContent = "No random page was found."; return; } `)
 	b.WriteString(`location.replace(` + jsonString("/"+wiki+func() string {
 		if lang != "" {
@@ -373,7 +395,7 @@ func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki, l
 	}
 	b.WriteString(`}</script><script async src="` + resourceOrigin + `/api.php?` + quote(q.Encode()))
 	b.WriteString(`" onerror="document.getElementById('random-status').textContent='Unable to load a random page.'"></script>`)
-	s.layout(w, r, wiki, lang, "Random page", sourceURL(wiki, lang, "Special:Random"), b.String(), "", fandom.DefaultSiteInfo)
+	s.layout(w, r, wiki, lang, "Random page", sourceURL(wiki, lang, "Special:Random"), b.String(), "", "", fandom.DefaultSiteInfo)
 }
 
 func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string) {
@@ -381,7 +403,7 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 	extras := map[string]string{}
 	if lang != "" && kind == "wiki" && strings.Contains(page, ":") {
 		ep[0] = parseEndpoint(page, "categories|sections")
-		for _, extra := range []endpoint{endpoints("category", page, query)[0], endpoints("file", page, requestParam(r, "from"))[1]} {
+		for _, extra := range []endpoint{endpoints("category", page, requestParam(r, "from"))[0], endpoints("file", page, requestParam(r, "from"))[1]} {
 			q := url.Values{}
 			for _, param := range extra.params {
 				q.Add(param.Key, param.Value)
@@ -391,10 +413,13 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 		}
 	}
 	ep = append(ep, endpoint{"siteinfo", fandom.SiteInfoParams})
+	if hasWikiNavigation(wiki, lang) {
+		ep = append(ep, navigationEndpoint)
+	}
 	// A JSONP page is a real HTML page, not JSON. The browser fetches each
 	// endpoint with a callback, then POSTs the results back to this URL.
 	var b strings.Builder
-	b.WriteString("<noscript>You have to enable JavaScript to load wiki pages. Sorry!</noscript><div id=\"loading\"></div><div id=\"progress-bar\" style=\"margin-bottom: 50vh\"><progress></progress></div>")
+	b.WriteString(`<noscript>You have to enable JavaScript to load wiki pages. Sorry!</noscript><div id="loading" role="status"></div><div id="progress-bar" style="margin-bottom: 50vh"><progress aria-label="Loading wiki page"></progress></div>`)
 	b.WriteString("<script>var jsonpData = {}; var proxy = new Proxy(jsonpData, {get(obj, prop) { return value => obj[prop] = value }});</script>")
 	for _, e := range ep {
 		q := url.Values{}
@@ -419,7 +444,7 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 	if kind == "search" {
 		title = "Search"
 	}
-	s.layout(w, r, wiki, lang, title, source, b.String(), "", fandom.DefaultSiteInfo)
+	s.layout(w, r, wiki, lang, title, source, b.String(), "", "", fandom.DefaultSiteInfo)
 }
 func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string) {
 	origin := r.Header.Get("Origin")
@@ -460,6 +485,9 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang,
 	}
 	if lang != "" && kind == "wiki" && strings.Contains(postPage, ":") {
 		kind = namespaceKind(info, postPage)
+		if kind == "category" || kind == "file" {
+			query = requestParam(r, "from")
+		}
 		if kind == "category" {
 			input["pagedata"] = input["wikipage"]
 		}
@@ -472,6 +500,9 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang,
 			return
 		}
 		data[e.name] = d
+	}
+	if hasWikiNavigation(postWiki, lang) {
+		data["navigation"], _ = input["navigation"].(map[string]any)
 	}
 	s.renderArticle(w, r, postWiki, lang, postPage, kind, source, query, data, info)
 }

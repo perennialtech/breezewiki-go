@@ -275,7 +275,7 @@ func TestPageLayoutAndScripts(t *testing.T) {
 		`variant=dark`, `href="/static/main.css"`, `src="/static/tabs.js"`,
 		`src="/static/search-suggestions.js"`, `src="/static/countdown.js"`,
 		`id="bw-pr-search-form"`, `id="bw-pr-search-input"`, `id="bw-pr-search-suggestions"`,
-		`class="bw-theme__item bw-theme__item--selected"`,
+		`aria-current="true" class="bw-header__panel-link bw-theme__item"`,
 		`href="../../Level 1"`, `href="../Level 2"`, body,
 		`CC-BY-SA-4.0 license`, `href="https://example.org/license"`,
 		`custom-footer__cols`, `SampleWiki source code`)
@@ -371,12 +371,12 @@ func TestArticleHistoryLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireContains(t, out, `href="https://example.fandom.com/wiki/Article?action=history">History</a>`)
+	requireContains(t, out, `href="https://example.fandom.com/wiki/Article?action=history"`)
 	search, err := Page("Search", Options{Wiki: "example", Title: "Search", Path: "/example/search", SourceURL: "https://example.fandom.com/wiki/Special:Search"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireAbsent(t, search, `>History</a>`)
+	requireAbsent(t, search, `aria-label="History"`)
 }
 
 func TestHistoryURLReservedArticleTitle(t *testing.T) {
@@ -392,7 +392,7 @@ func TestWikiHomeNavigation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireContains(t, out, `<a href="/example/">Wiki home</a>`)
+	requireContains(t, out, `aria-label="Wiki home" title="Wiki home" href="/example/"`)
 }
 
 func TestLocalizedWikiHomeNavigation(t *testing.T) {
@@ -400,7 +400,7 @@ func TestLocalizedWikiHomeNavigation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	requireContains(t, out, `<a href="/mlp/es/wiki">Wiki home</a>`)
+	requireContains(t, out, `aria-label="Wiki home" title="Wiki home" href="/mlp/es/wiki"`)
 }
 
 func TestWideTableKeyboardScrolling(t *testing.T) {

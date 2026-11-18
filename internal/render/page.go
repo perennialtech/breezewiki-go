@@ -20,6 +20,7 @@ type Options struct {
 	Notices                                                                                         []string
 	CurrentURL                                                                                      string
 	ExternalNoticeHTML                                                                              string
+	WikiNavigationHTML                                                                              string
 	DisableSearchSuggestions                                                                        bool
 	// StaticURL returns a cache-versioned URL for a bundled file; nil uses /static/name.
 	StaticURL func(string) string
@@ -93,6 +94,9 @@ func pathForPage(opts Options) string {
 }
 
 func historyURL(opts Options) string {
+	if opts.Wiki == "genshin-impact" && strings.Contains(opts.Path, "/wiki/") {
+		return (&url.URL{Path: opts.Path, RawPath: opts.EscapedPath, RawQuery: "action=history"}).String()
+	}
 	path := strings.TrimPrefix(opts.Path, "/"+opts.Wiki)
 	if path == opts.Path || !strings.Contains(path, "/wiki/") {
 		return ""
@@ -187,7 +191,11 @@ func Page(content string, opts Options) (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	b.WriteString("<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>")
+	pageLang := siteInfoString(opts.SiteInfo, "query", "general", "lang")
+	if pageLang == "" {
+		pageLang = resourceLang
+	}
+	b.WriteString(`<!DOCTYPE html><html lang="` + escaped(pageLang) + `"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>`)
 	b.WriteString(escaped(opts.Title + " | " + site + "+" + app))
 	b.WriteString("</title>")
 	for _, style := range styles {
@@ -203,7 +211,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString("</script><script type=\"importmap\">")
 	b.Write(imports)
 	b.WriteString("</script>")
-	scripts := []string{"countdown.js", "tabs.js", "sortable.js", "comments.js"}
+	scripts := []string{"countdown.js", "tabs.js", "sortable.js", "comments.js", "wiki-content.js", "header.js"}
 	if !opts.DisableSearchSuggestions {
 		scripts = append([]string{"search-suggestions.js"}, scripts...)
 	}
@@ -233,58 +241,17 @@ func Page(content string, opts Options) (string, error) {
 	}
 	b.WriteString(`</head><body class="`)
 	b.WriteString(escaped(bodyClass))
-	b.WriteString(` bw-tabs-nojs"><div class="main-container"><div class="fandom-community-header__background tileHorizontally header"></div><div class="page"><main class="page__main">`)
+	b.WriteString(` bw-tabs-nojs">`)
+	writeHeader(&b, opts, theme)
+	b.WriteString(`<div class="main-container"><div class="fandom-community-header__background tileHorizontally header"></div><div class="page"><main class="page__main" id="bw-main" tabindex="-1">`)
 	if notice := externalWikiNotice(opts); notice != "" {
 		b.WriteString(notice)
 	} else {
 		b.WriteString(opts.ExternalNoticeHTML)
 	}
-	b.WriteString(`<div class="custom-top"><h1 class="page-title">`)
+	b.WriteString(`<h1 class="page-title">`)
 	titleBreadcrumbs(&b, opts.Title)
-	b.WriteString(`</h1><nav class="sitesearch"><a href="/`)
-	b.WriteString(escaped(opts.Wiki))
-	if opts.Lang != "" {
-		b.WriteString("/")
-		b.WriteString(escaped(opts.Lang))
-		b.WriteString(`/wiki`)
-	} else {
-		b.WriteString("/")
-	}
-	b.WriteString(`">Wiki home</a>`)
-	if strings.Contains(opts.Path, "/wiki/") && !strings.Contains(opts.Path, "/wiki/Special:") && opts.SourceURL != "" {
-		b.WriteString(`<a rel="nofollow" href="`)
-		b.WriteString(escaped(historyURL(opts)))
-		b.WriteString(`">History</a>`)
-	}
-	b.WriteString(`<form action="/`)
-	b.WriteString(escaped(opts.Wiki))
-	if opts.Lang != "" {
-		b.WriteString("/")
-		b.WriteString(escaped(opts.Lang))
-	}
-	b.WriteString(`/search" class="bw-search-form" id="bw-pr-search-form"><label for="bw-search-input">Search </label><div id="bw-pr-search-input"><input type="text" name="q" id="bw-search-input" autocomplete="off"></div><div class="bw-ss__container" id="bw-pr-search-suggestions"></div></form><a href="/`)
-	b.WriteString(escaped(opts.Wiki))
-	if opts.Lang != "" {
-		b.WriteString("/")
-		b.WriteString(escaped(opts.Lang))
-	}
-	b.WriteString(`/wiki/Special:AllPages">All pages</a><div class="bw-theme__select"><span class="bw-theme__main-label">Page theme</span><span class="bw-theme__items">`)
-	for _, t := range []string{"default", "light", "dark"} {
-		class := "bw-theme__item"
-		if t == theme {
-			class += " bw-theme__item--selected"
-		}
-		b.WriteString(`<a rel="nofollow" href="`)
-		b.WriteString(escaped(themeLink(opts, t)))
-		b.WriteString(`" class="`)
-		b.WriteString(class)
-		b.WriteString(`"><span class="bw-theme__icon-container">`)
-		b.WriteString(themeIcons[t])
-		b.WriteString("</span>")
-		b.WriteString(t)
-		b.WriteString("</a>")
-	}
-	b.WriteString(`</span></div></nav></div><div id="content"><div id="mw-content-text">`)
+	b.WriteString(`</h1><div id="content"><div id="mw-content-text">`)
 	b.WriteString(content)
 	b.WriteString("</div></div>")
 	footer(&b, opts.SourceURL, app, licenseText, licenseURL, staticURL("breezewiki.svg"))
@@ -311,13 +278,13 @@ func titleBreadcrumbs(b *strings.Builder, title string) {
 }
 
 func footer(b *strings.Builder, source, app, license, licenseURL, logoURL string) {
-	b.WriteString(`<footer class="custom-footer"><div class="`)
+	b.WriteString(`<footer class="custom-footer" lang="en"><div class="`)
 	if source != "" {
 		b.WriteString("custom-footer__cols")
 	} else {
 		b.WriteString("internal-footer")
 	}
-	b.WriteString(`"><div><p><img class="my-logo" src="`)
+	b.WriteString(`"><div><p><img class="my-logo" alt="" src="`)
 	b.WriteString(escaped(logoURL))
 	b.WriteString(`"></p><p><a href="https://github.com/perennialtech/breezewiki-go">`)
 	b.WriteString(escaped(app))

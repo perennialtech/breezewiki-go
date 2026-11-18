@@ -1,11 +1,6 @@
-import {h, htm, render, signal, computed, effect} from "preact"
+import {h, htm, render, signal} from "preact"
 import {initSortableTables} from "sortable"
 const html = htm.bind(h)
-
-// *** Status
-
-const loaded = signal(false)
-export {loaded}
 
 // *** Loading indicator
 
@@ -18,11 +13,12 @@ const progress = signal(null)
 const progressBar = document.getElementById("progress-bar")
 while (progressBar.childNodes[0] !== undefined) progressBar.childNodes[0].remove() // clear out loading indicators
 
-render(html`<progress value="${progress}" max="1"></progress>`, progressBar)
+render(html`<progress aria-label="Loading wiki page" value="${progress}" max="1"></progress>`, progressBar)
 
 // *** Incoming data processing
 
 let localizedExtraChecked = false
+let submitted = false
 
 function localizedExtraName(siteinfo, title) {
     const prefix = title.split(":", 1)[0].toLowerCase()
@@ -70,6 +66,7 @@ window.proxy = new Proxy(jsonpData, {
 // *** Data upload and download
 
 async function cont() {
+    if (submitted) return
     if (BWData.lang && BWData.path?.includes(":") && jsonpData.siteinfo) {
         const special = localizedSpecialPage(jsonpData.siteinfo, BWData.path)
         if (special) {
@@ -78,8 +75,8 @@ async function cont() {
         }
     }
 	// Check for errors
-	for (const v of Object.values(jsonpData)) {
-		if (v.error) return error(v)
+	for (const [name, v] of Object.entries(jsonpData)) {
+		if (name !== "navigation" && v.error) return error(v)
 	}
 
     // Localized namespaces use siteinfo fetched by the browser, not a server-side probe.
@@ -102,7 +99,8 @@ async function cont() {
 		if (!(d in jsonpData)) return
 	}
 
-	const xhr = new XMLHttpRequest();
+	submitted = true
+	const xhr = new XMLHttpRequest()
 
 	const uploadFraction = 0.7
 
@@ -133,7 +131,6 @@ async function cont() {
 	})
 
 	xhr.addEventListener("load", () => {
-		console.log(xhr)
 		// check for errors
 		if (xhr.status === 500) {
 			return fetch(pkg.url, pkg.init)
@@ -143,14 +140,18 @@ async function cont() {
 		}
 		if (xhr.status !== 200) return error(`HTTP ${xhr.status} ${xhr.statusText}`)
 		// page -> #content
-		const imported = document.importNode(xhr.responseXML.getElementById("content"), true)
+		const content = xhr.responseXML?.getElementById("content")
+		if (!content) return error("The server returned an invalid page.")
+		const imported = document.importNode(content, true)
 		document.getElementById("content").replaceWith(imported)
-initSortableTables()
-        document.dispatchEvent(new Event("breezewiki:content-loaded"))
+		const navigation = xhr.responseXML.getElementById("bw-wiki-navigation")
+		if (navigation) {
+			document.getElementById("bw-wiki-navigation").replaceWith(document.importNode(navigation, true))
+		}
 		// page theme
 		// Try to make it a bit more accurate. Normally this is done server-side by sending a `theme=x` cookie with the parse request. But that's not possible in jsonp mode, and there's no equivalent URL query string to set the theme.
 		// Helps on Minecraft wiki. Might not be complete on some wikis.
-		cookieStore.get("theme").then(cookie => {
+		window.cookieStore?.get("theme").then(cookie => {
 			if (cookie && cookie.value !== "default") {
 				document.body.classList.remove("theme-fandomdesktop-light")
 				document.body.classList.remove("theme-fandomdesktop-dark")
@@ -161,7 +162,10 @@ initSortableTables()
 		})
 		// <head>
 		document.title = xhr.responseXML.title
+		const title = xhr.responseXML.querySelector(".page-title")
+		if (title) document.querySelector(".page-title")?.replaceWith(document.importNode(title, true))
 		document.body.className = xhr.responseXML.body.className
+		document.documentElement.lang = xhr.responseXML.documentElement.lang
 		for (const e of xhr.responseXML.head.children) {
 			const alreadyImported = [...document.querySelectorAll("link[href]")].map(e => e.href)
 			if (e.tagName === "LINK" && !alreadyImported.includes(e.href)) {
@@ -180,7 +184,8 @@ initSortableTables()
 			if (!destination.hash) destination.hash = location.hash
 			location.assign(destination.href)
 		}
-		loaded.value = true
+		initSortableTables()
+		document.dispatchEvent(new Event("breezewiki:content-loaded"))
 	})
 	xhr.addEventListener("error", () => error("The page request failed due to a network error."))
 
