@@ -601,3 +601,196 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
 .bw-comments__body img { max-width: 100%; height: auto; }
 .bw-comments__pages { display: flex; gap: 1em; }
 .bw-comments__pages button { cursor: pointer; padding: 0.25em 0.6em; }
+
+.bw-wiki-navigation {
+    display: flex;
+    align-items: start;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    border-block: 1px solid var(--theme-border-color, currentColor);
+    padding-block: 0.5rem;
+    margin-block-end: 1rem;
+    font-size: 0.95rem;
+}
+
+.bw-wiki-navigation > details {
+    position: relative;
+}
+
+.bw-wiki-navigation summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.bw-wiki-navigation > details > ul {
+    background: var(--theme-page-background-color, Canvas);
+    border: 1px solid var(--theme-border-color, currentColor);
+    padding: 0.6rem 1.6rem;
+    max-height: 55vh;
+    overflow: auto;
+    margin: 0;
+}
+
+.bw-wiki-navigation li ul {
+    margin: 0;
+    padding-inline-start: 1.1rem;
+}
+
+#content .bw-content-hidden, #content [hidden] {
+    display: none !important;
+}
+
+.bw-collapse-button {
+    font: inherit;
+    cursor: pointer;
+    margin-inline-end: 0.4em;
+}
+
+.bw-tooltip {
+    position: relative;
+}
+
+.bw-tooltip > [role="button"] {
+    cursor: help;
+    text-decoration: dotted underline;
+}
+
+#content .bw-tooltip > .mw-collapsible-content {
+    display: none;
+    position: absolute;
+    inset: 100% auto auto 0;
+    z-index: 10;
+    width: max-content;
+    max-width: min(20rem, 70vw);
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--theme-border-color, currentColor);
+    border-radius: 0.25rem;
+    background: var(--theme-page-background-color, Canvas);
+    color: var(--theme-page-text-color, CanvasText);
+}
+
+#content .bw-tooltip:hover > .mw-collapsible-content,
+#content .bw-tooltip:focus-within > .mw-collapsible-content,
+#content .bw-tooltip-open > .mw-collapsible-content {
+    display: inline-block !important;
+}
+
+.bw-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: start;
+    gap: 0.35rem 1rem;
+    margin-block: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.bw-filters input {
+    font: inherit;
+    margin-inline-end: 0.25rem;
+}
+
+.bw-filters input[type="search"] {
+    display: block;
+}
+
+.bw-filters fieldset label {
+    display: inline-flex;
+    align-items: center;
+    margin-inline-end: 0.6rem;
+}
+
+#content .audio-button audio {
+    height: 2rem;
+    width: min(12rem, 100%);
+    vertical-align: middle;
+}
+
+.bw-discussion article, .bw-discussion .reply {
+    padding-block: 1rem;
+    border-block-start: 1px solid var(--theme-border-color, currentColor);
+}
+
+.bw-discussion .post-attribution, .bw-discussion .post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.bw-discussion .wds-avatar__image {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+}
+
+.bw-discussion img {
+    max-width: 100%;
+    height: auto;
+}
+
+.bw-discussion .post-poll__choice {
+    margin-block: 0.35rem;
+}
+
+#content .bw-filter-hidden {
+    display: none !important;
+}
+
+.sitesearch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.7rem;
+}
+
+.custom-top {
+    gap: 0.5rem 1rem;
+    margin-block-end: 0.75rem;
+}
+
+.custom-top .page-title {
+    margin-block-end: 0;
+}
+
+@media (max-width: 559px) {
+    #content .portable-infobox {
+        max-width: 100%;
+        margin-inline: auto;
+    }
+
+    #content .talent-table-container {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+}
+
+.bw-image-viewer {
+    max-width: min(90vw, 70rem);
+    max-height: 90vh;
+    overflow: auto;
+    padding: 1rem;
+    background: var(--theme-page-background-color, Canvas);
+    color: var(--theme-page-text-color, CanvasText);
+    border: 1px solid var(--theme-border-color, currentColor);
+}
+
+.bw-image-viewer::backdrop {
+    background: rgb(0 0 0 / 75%);
+}
+
+.bw-image-viewer > div {
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-block-end: 0.75rem;
+}
+
+.bw-image-viewer img {
+    display: block;
+    margin-inline: auto;
+    max-height: 70vh;
+    object-fit: contain;
+}

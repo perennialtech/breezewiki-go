@@ -93,6 +93,9 @@ func pathForPage(opts Options) string {
 }
 
 func historyURL(opts Options) string {
+	if opts.Wiki == "genshin-impact" && strings.Contains(opts.Path, "/wiki/") {
+		return (&url.URL{Path: opts.Path, RawPath: opts.EscapedPath, RawQuery: "action=history"}).String()
+	}
 	path := strings.TrimPrefix(opts.Path, "/"+opts.Wiki)
 	if path == opts.Path || !strings.Contains(path, "/wiki/") {
 		return ""
@@ -203,7 +206,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString("</script><script type=\"importmap\">")
 	b.Write(imports)
 	b.WriteString("</script>")
-	scripts := []string{"countdown.js", "tabs.js", "sortable.js", "comments.js"}
+	scripts := []string{"countdown.js", "tabs.js", "sortable.js", "comments.js", "wiki-content.js"}
 	if !opts.DisableSearchSuggestions {
 		scripts = append([]string{"search-suggestions.js"}, scripts...)
 	}

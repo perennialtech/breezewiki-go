@@ -41,10 +41,12 @@ func endpoints(kind, path, query string) []endpoint {
 	case "wiki":
 		return []endpoint{parseEndpoint(path, "categories")}
 	case "category":
-		return []endpoint{
-			{"membersdata", []fandom.Param{param("action", "query"), param("list", "categorymembers"), param("cmtitle", path), param("cmlimit", "max"), param("formatversion", "2"), param("format", "json")}},
-			{"pagedata", parseEndpoint(path, "").params},
+		params := []fandom.Param{param("action", "query"), param("list", "categorymembers"), param("cmtitle", path),
+			param("cmlimit", "max"), param("formatversion", "2"), param("format", "json")}
+		if query != "" {
+			params = append(params, param("cmcontinue", query))
 		}
+		return []endpoint{{"membersdata", params}, {"pagedata", parseEndpoint(path, "").params}}
 	case "file":
 		params := []fandom.Param{param("action", "query"), param("titles", path),
 			param("prop", "imageinfo|fileusage"), param("iiprop", "timestamp|user|canonicaltitle|url|size|mime|mediatype|metadata"),
@@ -62,7 +64,7 @@ func endpoints(kind, path, query string) []endpoint {
 }
 func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind string) {
 	q := requestParam(r, "q")
-	if kind == "allpages" || kind == "file" {
+	if kind == "allpages" || kind == "file" || kind == "category" {
 		q = requestParam(r, "from")
 	}
 	source := sourceURL(wiki, lang, page)
@@ -109,6 +111,9 @@ func (s *Server) article(w http.ResponseWriter, r *http.Request, wiki, lang, pag
 		data[e.name] = js
 	}
 	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
+	if hasWikiNavigation(wiki, lang) {
+		data["navigation"] = s.loadNavigation(r, wiki)
+	}
 	s.renderArticle(w, r, wiki, lang, page, kind, source, q, data, info)
 }
 
@@ -184,7 +189,11 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 			t := fandom.String(m, "title")
 			b.WriteString("<li><a href=\"" + quote(linkTo(wiki, lang, t)) + "\">" + quote(t) + "</a></li>")
 		}
-		b.WriteString("</ul></div>")
+		b.WriteString("</ul>")
+		if next := fandom.String(data["membersdata"], "continue", "cmcontinue"); next != "" {
+			b.WriteString(`<p><a href="` + quote(linkTo(wiki, lang, title)+"?from="+url.QueryEscape(next)) + `">More category members</a></p>`)
+		}
+		b.WriteString("</div>")
 		content += b.String()
 	case "file":
 		p := data["wikipage"]
@@ -307,6 +316,19 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 	if filePlayer != "" {
 		content = filePlayer + content
 	}
+	parsed := data["wikipage"]
+	if kind == "category" {
+		parsed = data["pagedata"]
+	}
+	navigation := articleNavigation(wiki, lang, title, info, data["navigation"], parsed)
+	if navigation != "" {
+		navigation, err := rewriteContent(navigation, wiki, lang, false)
+		if err != nil {
+			s.internalError(w, err)
+			return
+		}
+		content = navigation + content
+	}
 	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
 		content += commentsPlaceholder(wiki, lang, title)
 	}
@@ -381,7 +403,7 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 	extras := map[string]string{}
 	if lang != "" && kind == "wiki" && strings.Contains(page, ":") {
 		ep[0] = parseEndpoint(page, "categories|sections")
-		for _, extra := range []endpoint{endpoints("category", page, query)[0], endpoints("file", page, requestParam(r, "from"))[1]} {
+		for _, extra := range []endpoint{endpoints("category", page, requestParam(r, "from"))[0], endpoints("file", page, requestParam(r, "from"))[1]} {
 			q := url.Values{}
 			for _, param := range extra.params {
 				q.Add(param.Key, param.Value)
@@ -391,6 +413,9 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 		}
 	}
 	ep = append(ep, endpoint{"siteinfo", fandom.SiteInfoParams})
+	if hasWikiNavigation(wiki, lang) {
+		ep = append(ep, navigationEndpoint)
+	}
 	// A JSONP page is a real HTML page, not JSON. The browser fetches each
 	// endpoint with a callback, then POSTs the results back to this URL.
 	var b strings.Builder
@@ -460,6 +485,9 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang,
 	}
 	if lang != "" && kind == "wiki" && strings.Contains(postPage, ":") {
 		kind = namespaceKind(info, postPage)
+		if kind == "category" || kind == "file" {
+			query = requestParam(r, "from")
+		}
 		if kind == "category" {
 			input["pagedata"] = input["wikipage"]
 		}
@@ -472,6 +500,9 @@ func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang,
 			return
 		}
 		data[e.name] = d
+	}
+	if hasWikiNavigation(postWiki, lang) {
+		data["navigation"], _ = input["navigation"].(map[string]any)
 	}
 	s.renderArticle(w, r, postWiki, lang, postPage, kind, source, query, data, info)
 }

@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/perennialtech/breezewiki-go"
 	"github.com/perennialtech/breezewiki-go/internal/config"
@@ -33,6 +34,7 @@ type Server struct {
 	Fandom       *fandom.Client
 	StaticDir    string
 	genericCache genericCache
+	navigation   sync.Map
 }
 
 // New serves embedded assets by default. Set StaticDir to override them from disk.
@@ -113,6 +115,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		if language := languagePath.FindStringSubmatch(rest); language != nil && language[1] != "wiki" {
 			lang, rest = language[1], language[2]
 		}
+		if page, ok := strings.CutPrefix(rest, "wiki/"); ok && page != "" &&
+			(r.Method == http.MethodGet || r.Method == http.MethodHead) && s.readView(w, r, wiki, lang, page) {
+			return
+		}
 		switch {
 		case rest == "wiki/Special:Random":
 			s.randomPage(w, r, wiki, lang)
@@ -142,6 +148,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				kind = namespaceKind(siteinfo, page)
 			}
 			s.article(w, r, wiki, lang, page, kind)
+			return
+		case rest == "f" || strings.HasPrefix(rest, "f/"):
+			s.discussion(w, r, wiki, rest)
 			return
 		case rest == "comments":
 			s.comments(w, r, wiki, lang)
