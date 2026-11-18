@@ -10,6 +10,14 @@ This project derives from BreezeWiki's source and keeps its **AGPL-3.0** license
 static assets, and attribution to the original BreezeWiki contributors. It is
 not affiliated with Fandom.
 
+## Open a Fandom link in BreezeWiki
+
+Paste the entire Fandom wiki URL after your BreezeWiki instance's address and a
+slash. For example,
+`https://breeze.example/https://undertale.fandom.com/wiki/Hot_Dog...%3F#Trivia`
+opens `/undertale/wiki/Hot_Dog...%3F#Trivia` on that instance. URLs without a
+scheme and old `wikia.com` wiki links work too.
+
 ## Build and run
 
 Go 1.26 or later is required. Run `make ci` to test, vet, and build every

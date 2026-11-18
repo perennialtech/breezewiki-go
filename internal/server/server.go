@@ -55,7 +55,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.serve(w, r)
 }
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
-	if s.subdomain(w, r) {
+	pasted := ""
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		pasted = pastedFandomTarget(r.URL)
+	}
+	if s.subdomain(w, r, pasted) {
+		return
+	}
+	if pasted != "" {
+		s.redirect(w, pasted)
 		return
 	}
 	uri := r.URL.Path
@@ -104,10 +112,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			suffix = suffix[i:]
-			target := "/" + canonical + suffix
-			if r.URL.RawQuery != "" {
-				target += "?" + r.URL.RawQuery
-			}
+			target := "/" + canonical + suffix + querySuffix(r.URL)
 			s.redirect(w, target)
 			return
 		}
@@ -159,7 +164,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			s.article(w, r, wiki, lang, "", "search")
 			return
 		case rest == "" || rest == "wiki" || rest == "wiki/":
-			s.redirectWiki(w, r, wiki, lang)
+			s.redirect(w, s.wikiHome(r, wiki, lang)+querySuffix(r.URL))
 			return
 		}
 	}
@@ -272,7 +277,7 @@ func (s *Server) redirect(w http.ResponseWriter, dest string) {
 	w.Header().Set("Location", dest)
 	s.html(w, 302, "<html><head><title>Redirecting...</title></head><body>Redirecting to <a href=\""+html.EscapeString(dest)+"\">"+html.EscapeString(dest)+"</a>...</body></html>")
 }
-func (s *Server) subdomain(w http.ResponseWriter, r *http.Request) bool {
+func (s *Server) subdomain(w http.ResponseWriter, r *http.Request, target string) bool {
 	origin := r.Header.Get("X-Canonical-Origin")
 	if origin == "" {
 		origin = s.Config.Get("canonical_origin")
@@ -288,20 +293,19 @@ func (s *Server) subdomain(w http.ResponseWriter, r *http.Request) bool {
 	if strings.HasSuffix(host, "."+u.Hostname()) {
 		wiki := strings.TrimSuffix(host, "."+u.Hostname())
 		if !strings.Contains(wiki, ".") && wiki != "" {
-			dest := strings.TrimRight(origin, "/") + "/" + wiki + r.URL.EscapedPath()
-			if r.URL.RawQuery != "" || r.URL.ForceQuery {
-				dest += "?" + r.URL.RawQuery
+			if target == "" {
+				target = "/" + wiki + r.URL.EscapedPath() + querySuffix(r.URL)
 			}
-			s.redirect(w, dest)
+			s.redirect(w, strings.TrimRight(origin, "/")+target)
 			return true
 		}
 	}
 	return false
 }
-func (s *Server) redirectWiki(w http.ResponseWriter, r *http.Request, wiki, lang string) {
+func (s *Server) wikiHome(r *http.Request, wiki, lang string) string {
 	info := s.Fandom.SiteInfo(r.Context(), wiki, lang)
 	_, base := fandom.General(info)
-	s.redirect(w, linkTo(wiki, lang, base))
+	return linkTo(wiki, lang, base)
 }
 func (s *Server) globalSearch(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -316,7 +320,7 @@ func (s *Server) globalSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if q.Get("q") == "" {
-		s.redirectWiki(w, r, wiki, "")
+		s.redirect(w, s.wikiHome(r, wiki, ""))
 		return
 	}
 	s.redirect(w, "/"+wiki+"/search?q="+url.QueryEscape(q.Get("q")))
