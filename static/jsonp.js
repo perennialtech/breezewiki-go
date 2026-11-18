@@ -144,6 +144,10 @@ async function cont() {
 		if (!content) return error("The server returned an invalid page.")
 		const imported = document.importNode(content, true)
 		document.getElementById("content").replaceWith(imported)
+		const navigation = xhr.responseXML.getElementById("bw-wiki-navigation")
+		if (navigation) {
+			document.getElementById("bw-wiki-navigation").replaceWith(document.importNode(navigation, true))
+		}
 		// page theme
 		// Try to make it a bit more accurate. Normally this is done server-side by sending a `theme=x` cookie with the parse request. But that's not possible in jsonp mode, and there's no equivalent URL query string to set the theme.
 		// Helps on Minecraft wiki. Might not be complete on some wikis.

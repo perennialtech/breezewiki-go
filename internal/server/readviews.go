@@ -76,7 +76,7 @@ func (s *Server) readAPI(r *http.Request, wiki, lang string, params ...fandom.Pa
 
 func (s *Server) readUnavailable(w http.ResponseWriter, r *http.Request, wiki, lang, page, source string) {
 	content := `<p>This view is available <a href="` + quote(source) + `">on Fandom</a>.</p>`
-	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, content, "", nil)
+	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, content, "", "", nil)
 	if err != nil {
 		s.internalError(w, err)
 		return

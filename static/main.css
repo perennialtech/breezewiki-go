@@ -48,19 +48,13 @@ p {
 }
 
 /* dotted underline for elements with hoverable title text */
-[title]:not(a):not(.new) {
+#content [title]:not(a):not(.new) {
     text-decoration: dotted underline;
 }
 
-/* top bit with title and search bar */
-.custom-top {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-}
 .page-title {
     margin-top: 0;
+    overflow-wrap: anywhere;
 }
 
 /* home page search form */
@@ -114,7 +108,7 @@ p {
     width: auto;
 }
 .page {
-    margin: 5vw;
+    margin: clamp(0.75rem, 2.5vw, 2.5rem) 5vw 5vw;
 }
 .page__main {
     box-sizing: border-box;
@@ -289,111 +283,262 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
     grid-gap: 8px;
 }
 
-/* (breezewiki) search suggestions */
-.bw-search-form {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    grid-gap: 0px 5px;
-    align-items: baseline;
+/* Wiki toolbar */
+html:has(.bw-header) {
+    scroll-padding-block-start: 4.25rem;
 }
-.bw-ss__container {
-    grid-column: 2;
-    position: relative;
-}
-.bw-ss__list {
-    position: absolute;
-    left: 0;
-    right: 0;
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-    font-size: 14px;
-    background: white;
-    border: solid #808080;
-    border-width: 0px 1px 1px;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.5);
-    z-index: 99;
 
+.bw-header {
+    --bw-header-bg: var(--theme-page-background-color, Canvas);
+    --bw-header-text: var(--theme-page-text-color, CanvasText);
+    --bw-header-border: var(--theme-border-color, color-mix(in srgb, var(--bw-header-text) 20%, var(--bw-header-bg)));
+    --bw-header-hover: color-mix(in srgb, var(--bw-header-text) 9%, var(--bw-header-bg));
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 100;
+    background: var(--bw-header-bg);
+    color: var(--bw-header-text);
+    border-block-end: 1px solid var(--bw-header-border);
+    font: 0.9375rem/1.25 "Source Sans Pro", "Segoe UI", sans-serif;
+}
+
+.bw-header__inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 80rem;
+    margin-inline: auto;
+    padding: 0.25rem clamp(0.5rem, 3vw, 1.5rem);
+}
+
+.bw-header :is(a, summary, button):focus-visible,
+.bw-header .bw-search-form:focus-within {
+    outline: 2px solid var(--theme-accent-color, Highlight);
+    outline-offset: -2px;
+}
+
+.bw-header .bw-header__control {
+    box-sizing: border-box;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-inline-size: 2.75rem;
+    min-block-size: 2.75rem;
+    padding-inline: 0.65rem;
+    border-radius: 0.375rem;
+    color: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.bw-header__control::-webkit-details-marker {
     display: none;
 }
-.bw-ss__list--focus {
+
+.bw-header__icon, .bw-theme__icon svg {
     display: block;
-}
-.bw-ss__list--loading {
-    background: #c0c0c0;
-}
-.bw-ss__input {
-    width: 100%; /* magically makes it fit the available space */
-}
-.bw-ss__input--accepted {
-    background: #fffbc0;
-}
-.bw-ss__preview {
-    padding: 0px 2px;
-    font-style: italic;
-    color: #555;
-}
-.bw-ss__item {
-    display: grid; /* make buttons take the full size */
-}
-.bw-ss__button:hover, .bw-ss__button:focus, .bw-ss__button.bw-ss__button--selected {
-    background-color: #ddd;
-}
-.bw-ss__button {
-    appearance: none;
-    -moz-appearance: none;
-    border: none;
-    margin: 0;
-    line-height: inherit;
-    color: black;
-    background: none;
-    font: inherit;
-    cursor: pointer;
-    padding: 0px 2px;
-    text-align: left;
-    text-decoration: none;
+    flex: none;
+    inline-size: 1.125rem;
+    block-size: 1.125rem;
 }
 
-/* (breezewiki) theme selector */
-.bw-theme__select {
+.bw-header__menu {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.bw-header__menu[open] > summary, .bw-header .bw-header__control:hover {
+    background-color: var(--bw-header-hover);
+}
+
+.bw-header__panel, .bw-ss__list {
+    box-sizing: border-box;
+    position: absolute;
+    z-index: 1;
+    inset-block-start: calc(100% + 0.375rem);
+    inset-inline-start: 0;
+    max-block-size: 65vh;
+    max-block-size: 65dvh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0.35rem;
+    margin: 0;
+    border: 1px solid var(--bw-header-border);
+    border-radius: 0.5rem;
+    background: var(--bw-header-bg);
+    color: var(--bw-header-text);
+    box-shadow: 0 0.375rem 1.25rem rgb(0 0 0 / 20%);
+}
+
+.bw-header__browse .bw-header__panel {
+    inline-size: 21rem;
+}
+
+.bw-header__theme .bw-header__panel {
+    inset-inline: auto 0;
+    min-inline-size: 9rem;
+}
+
+.bw-header__panel ul, .bw-ss__list {
+    list-style: none;
+    padding-inline-start: 0;
+}
+
+.bw-header__panel ul {
+    margin: 0;
+}
+
+.bw-header__panel ul ul {
+    margin-inline-start: 0.7rem;
+    padding-inline-start: 0.45rem;
+    border-inline-start: 1px solid var(--bw-header-border);
+}
+
+.bw-header .bw-header__panel-link, .bw-wiki-navigation a, .bw-wiki-navigation summary {
+    display: block;
+    min-block-size: 2.25rem;
+    box-sizing: border-box;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.25rem;
+    color: inherit;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.bw-wiki-navigation summary {
+    display: list-item;
+    list-style-position: inside;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.bw-header .bw-header__panel-link:hover, .bw-wiki-navigation a:hover, .bw-wiki-navigation summary:hover {
+    background: var(--bw-header-hover);
+}
+
+.bw-header .bw-theme__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.bw-theme__item[aria-current="true"] {
+    background: var(--bw-header-hover);
+    font-weight: 700;
+}
+
+/* Search and its popup share the toolbar's colors and spacing. */
+.bw-search-form {
+    display: flex;
+    position: relative;
+    align-items: center;
+    flex: 1 1 18rem;
+    min-inline-size: 0;
+    max-inline-size: 27rem;
+    margin-inline: auto;
+    border: 1px solid var(--bw-header-border);
+    border-radius: 0.4rem;
+    background: var(--bw-header-hover);
+}
+
+.bw-header #bw-pr-search-input {
+    flex: 1;
+    min-inline-size: 0;
+}
+
+.bw-header #bw-search-input, .bw-header .bw-search-form__submit {
+    display: block;
+    box-sizing: border-box;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}
+
+.bw-header #bw-search-input {
+    inline-size: 100%;
+    min-block-size: 2.375rem;
+    padding: 0.4rem 0.5rem 0.4rem 0;
+    outline: none;
+}
+
+.bw-header #bw-search-input::placeholder {
+    color: var(--bw-header-text);
+    opacity: 0.72;
+}
+
+.bw-header .bw-search-form__submit {
     display: grid;
-    grid-template-columns: auto auto;
-    grid-gap: 0px 5px;
-    justify-content: right;
-    align-items: baseline;
-    margin-top: 4px;
+    place-items: center;
+    flex: none;
+    inline-size: 2.375rem;
+    block-size: 2.375rem;
+    cursor: pointer;
 }
-.bw-theme__items {
-    display: flex;
+
+.bw-visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
 }
-.bw-theme__item {
-    display: inline-block;
-    display: flex;
-    align-items: baseline;
-    padding: 2px;
-    border: 1px solid var(--theme-border-color);
-    border-right-width: 0px;
-    background-color: var(--custom-table-background);
-    color: var(--theme-page-text-color);
-    transition: none;
+
+.bw-ss__list {
+    display: none;
+    inset-inline: 0;
+    padding: 0.35rem;
 }
-.bw-theme__item:hover, .bw-theme__item:focus {
-    /* background-color: var(--theme-page-background-color); */
-    color: var(--theme-accent-color);
+
+.bw-ss__list--focus:not(:empty) {
+    display: block;
 }
-.bw-theme__item:first-child {
-    border-radius: 4px 0px 0px 4px;
+
+.bw-header .bw-ss__button {
+    display: block;
+    box-sizing: border-box;
+    inline-size: 100%;
+    padding: 0.45rem 0.65rem;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    cursor: pointer;
 }
-.bw-theme__item:last-child {
-    border-radius: 0px 4px 4px 0px;
-    border-right-width: 1px;
+
+.bw-header .bw-ss__button:is(:hover, :focus, .bw-ss__button--selected) {
+    background: var(--bw-header-hover);
 }
-.bw-theme__item--selected, .bw-theme__item--selected:hover, .bw-theme__item--selected:focus {
-    background-color: var(--theme-accent-color);
-    color: var(--theme-accent-label-color);
-}
-.bw-theme__icon-container svg {
-    vertical-align: middle;
+
+@media (max-width: 42rem) {
+    .bw-header__label {
+        display: none;
+    }
+
+    .bw-header__browse, .bw-search-form {
+        position: static;
+    }
+
+    .bw-header__browse .bw-header__panel, .bw-ss__list {
+        inset-inline: 0.5rem;
+        inline-size: auto;
+    }
+
+    .bw-header #bw-search-input {
+        font-size: 1rem;
+    }
 }
 
 /* independent wiki notices */
@@ -602,40 +747,6 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
 .bw-comments__pages { display: flex; gap: 1em; }
 .bw-comments__pages button { cursor: pointer; padding: 0.25em 0.6em; }
 
-.bw-wiki-navigation {
-    display: flex;
-    align-items: start;
-    flex-wrap: wrap;
-    gap: 0.5rem 1.25rem;
-    border-block: 1px solid var(--theme-border-color, currentColor);
-    padding-block: 0.5rem;
-    margin-block-end: 1rem;
-    font-size: 0.95rem;
-}
-
-.bw-wiki-navigation > details {
-    position: relative;
-}
-
-.bw-wiki-navigation summary {
-    cursor: pointer;
-    font-weight: 600;
-}
-
-.bw-wiki-navigation > details > ul {
-    background: var(--theme-page-background-color, Canvas);
-    border: 1px solid var(--theme-border-color, currentColor);
-    padding: 0.6rem 1.6rem;
-    max-height: 55vh;
-    overflow: auto;
-    margin: 0;
-}
-
-.bw-wiki-navigation li ul {
-    margin: 0;
-    padding-inline-start: 1.1rem;
-}
-
 #content .bw-content-hidden, #content [hidden] {
     display: none !important;
 }
@@ -737,22 +848,6 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
     display: none !important;
 }
 
-.sitesearch {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.7rem;
-}
-
-.custom-top {
-    gap: 0.5rem 1rem;
-    margin-block-end: 0.75rem;
-}
-
-.custom-top .page-title {
-    margin-block-end: 0;
-}
-
 @media (max-width: 559px) {
     #content .portable-infobox {
         max-width: 100%;
@@ -762,6 +857,16 @@ a.ext-audiobutton { /* see hearthstone/wiki/Diablo_(Duels_hero) */
     #content .talent-table-container {
         max-width: 100%;
         overflow-x: auto;
+    }
+}
+
+@media (max-width: 22.5rem) {
+    #mw-content-text .mw-parser-output li > :is(ol, ul) {
+        padding-inline-start: 1em;
+    }
+
+    #mw-content-text .references-small {
+        column-count: 1 !important;
     }
 }
 

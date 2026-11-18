@@ -126,7 +126,7 @@ func (s *Server) fandomDenied(w http.ResponseWriter, r *http.Request, wiki, lang
 	msg := "<p>Sorry! Fandom isn't allowing BreezeWiki to show pages right now.</p><p>We'll automatically try again in 30 seconds, so please stay on this page and be patient.</p><p><small>In a hurry? <a href=\"" + quote(source) + "\">Click here to read the page on Fandom.</a></small></p>"
 	// Preserve the intended status even if render.Page fails.
 	info := fandom.DefaultSiteInfo
-	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, msg, "", info)
+	out, err := s.pageHTML(r, wiki, lang, strings.ReplaceAll(page, "_", " "), source, msg, "", "", info)
 	if err != nil {
 		s.internalError(w, err)
 		return
@@ -320,19 +320,15 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 	if kind == "category" {
 		parsed = data["pagedata"]
 	}
-	navigation := articleNavigation(wiki, lang, title, info, data["navigation"], parsed)
-	if navigation != "" {
-		navigation, err := rewriteContent(navigation, wiki, lang, false)
-		if err != nil {
-			s.internalError(w, err)
-			return
-		}
-		content = navigation + content
+	navigation, err := rewriteContent(articleNavigation(wiki, lang, title, info, data["navigation"], parsed), wiki, lang, false)
+	if err != nil {
+		s.internalError(w, err)
+		return
 	}
 	if kind == "wiki" && !strings.HasPrefix(page, "Special:") {
 		content += commentsPlaceholder(wiki, lang, title)
 	}
-	s.layout(w, r, wiki, lang, title, source, content, head, info)
+	s.layout(w, r, wiki, lang, title, source, content, head, navigation, info)
 }
 func asList(v any) []any { a, _ := v.([]any); return a }
 
@@ -395,7 +391,7 @@ func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki, l
 	}
 	b.WriteString(`}</script><script async src="` + resourceOrigin + `/api.php?` + quote(q.Encode()))
 	b.WriteString(`" onerror="document.getElementById('random-status').textContent='Unable to load a random page.'"></script>`)
-	s.layout(w, r, wiki, lang, "Random page", sourceURL(wiki, lang, "Special:Random"), b.String(), "", fandom.DefaultSiteInfo)
+	s.layout(w, r, wiki, lang, "Random page", sourceURL(wiki, lang, "Special:Random"), b.String(), "", "", fandom.DefaultSiteInfo)
 }
 
 func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string) {
@@ -444,7 +440,7 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 	if kind == "search" {
 		title = "Search"
 	}
-	s.layout(w, r, wiki, lang, title, source, b.String(), "", fandom.DefaultSiteInfo)
+	s.layout(w, r, wiki, lang, title, source, b.String(), "", "", fandom.DefaultSiteInfo)
 }
 func (s *Server) postArticle(w http.ResponseWriter, r *http.Request, wiki, lang, page, kind, source, query string) {
 	origin := r.Header.Get("Origin")

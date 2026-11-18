@@ -152,7 +152,7 @@ function onSearchKeyDown(event) {
 
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" autocomplete="off" onInput=${e => { pendingEnter = false; selectedIndex.value = -1; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" placeholder="Search" autocomplete="off" onInput=${e => { pendingEnter = false; selectedIndex.value = -1; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)

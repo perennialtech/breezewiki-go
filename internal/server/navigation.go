@@ -74,33 +74,22 @@ func navigationTarget(wiki, lang, target string) string {
 	return href
 }
 
-func writeNavigationItems(b *strings.Builder, items []*navigationItem, menu bool) {
+func writeNavigationItems(b *strings.Builder, items []*navigationItem) {
 	for _, item := range items {
-		if menu && len(item.children) > 0 {
+		b.WriteString("<li>")
+		if len(item.children) > 0 {
 			b.WriteString(`<details><summary>` + quote(item.label) + `</summary><ul>`)
 			if item.href != "" {
 				b.WriteString(`<li><a href="` + quote(item.href) + `">` + quote(item.label) + `</a></li>`)
 			}
-			writeNavigationItems(b, item.children, false)
+			writeNavigationItems(b, item.children)
 			b.WriteString("</ul></details>")
-			continue
-		}
-		if !menu {
-			b.WriteString("<li>")
-		}
-		if item.href != "" {
+		} else if item.href != "" {
 			b.WriteString(`<a href="` + quote(item.href) + `">` + quote(item.label) + "</a>")
 		} else {
 			b.WriteString(quote(item.label))
 		}
-		if len(item.children) > 0 {
-			b.WriteString("<ul>")
-			writeNavigationItems(b, item.children, false)
-			b.WriteString("</ul>")
-		}
-		if !menu {
-			b.WriteString("</li>")
-		}
+		b.WriteString("</li>")
 	}
 }
 
@@ -114,8 +103,6 @@ func articleNavigation(wiki, lang, title string, info, navigation, parsed map[st
 	if hasWikiNavigation(wiki, lang) {
 		_, home := fandom.General(info)
 		items = append([]*navigationItem{{label: "Explore", children: []*navigationItem{
-			{label: "Main page", href: wikiPrefix(wiki, lang) + "/wiki"},
-			{label: "All pages", href: linkTo(wiki, lang, "Special:AllPages")},
 			{label: "Interactive maps", href: linkTo(wiki, lang, "Special:AllMaps")},
 			{label: "Community", href: linkTo(wiki, lang, "Special:Community")},
 			{label: "Recent blog posts", href: linkTo(wiki, lang, "Blog:Recent_posts")},
@@ -142,9 +129,9 @@ func articleNavigation(wiki, lang, title string, info, navigation, parsed map[st
 		items = append(items, &navigationItem{label: "Languages", children: languages})
 	}
 	if len(items) > 0 {
-		b.WriteString(`<nav class="bw-wiki-navigation" aria-label="Wiki navigation">`)
-		writeNavigationItems(&b, items, true)
-		b.WriteString("</nav>")
+		b.WriteString(`<ul class="bw-wiki-navigation">`)
+		writeNavigationItems(&b, items)
+		b.WriteString("</ul>")
 	}
 	return b.String()
 }

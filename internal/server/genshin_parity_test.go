@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
 func TestGenshinNavigationAndLanguages(t *testing.T) {
@@ -56,6 +58,14 @@ func TestGenshinNavigationAndLanguages(t *testing.T) {
 				if res.Code != 200 || !strings.Contains(res.Body.String(), want) {
 					t.Errorf("status %d missing %q", res.Code, want)
 				}
+			}
+			doc, err := goquery.NewDocumentFromReader(strings.NewReader(res.Body.String()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if doc.Find("header.bw-header #bw-wiki-navigation .bw-wiki-navigation").Length() != 1 ||
+				doc.Find("#content .bw-wiki-navigation, header.bw-header h1").Length() != 0 {
+				t.Fatal("the wiki navigation should be inside the toolbar and the article title should be outside it")
 			}
 		})
 	}
