@@ -20,7 +20,7 @@ func writeHeader(b *strings.Builder, opts Options, theme string) {
 		prefix += "/" + opts.Lang
 		home = prefix + "/wiki"
 	}
-	b.WriteString(`<header class="bw-header"><div class="bw-header__inner">
+	b.WriteString(`<header class="bw-header" lang="en"><a class="bw-skip-link" href="#bw-main">Skip to content</a><div class="bw-header__inner">
 	<a class="bw-header__control" aria-label="Wiki home" title="Wiki home" href="` + escaped(home) + `">`)
 	b.WriteString(headerIcon(homeIcon) + `<span class="bw-header__label">Wiki home</span></a>
 	<details class="bw-header__menu bw-header__browse" name="bw-header-menu">

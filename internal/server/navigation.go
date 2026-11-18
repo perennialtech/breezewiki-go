@@ -19,8 +19,8 @@ func hasWikiNavigation(wiki, lang string) bool {
 }
 
 type navigationItem struct {
-	label, href string
-	children    []*navigationItem
+	label, href, lang string
+	children          []*navigationItem
 }
 
 // MediaWiki:Wiki-navigation uses asterisks for levels and target|label for an
@@ -85,7 +85,11 @@ func writeNavigationItems(b *strings.Builder, items []*navigationItem) {
 			writeNavigationItems(b, item.children)
 			b.WriteString("</ul></details>")
 		} else if item.href != "" {
-			b.WriteString(`<a href="` + quote(item.href) + `">` + quote(item.label) + "</a>")
+			b.WriteString(`<a href="` + quote(item.href) + `"`)
+			if item.lang != "" {
+				b.WriteString(` lang="` + quote(item.lang) + `"`)
+			}
+			b.WriteString(">" + quote(item.label) + "</a>")
 		} else {
 			b.WriteString(quote(item.label))
 		}
@@ -123,7 +127,7 @@ func articleNavigation(wiki, lang, title string, info, navigation, parsed map[st
 		if err != nil || label == "" || u.Scheme != "https" || u.User != nil || !fandom.AllowedProxyURL(u.String()) {
 			continue
 		}
-		languages = append(languages, &navigationItem{label: label, href: u.String()})
+		languages = append(languages, &navigationItem{label: label, href: u.String(), lang: fandom.String(link, "lang")})
 	}
 	if len(languages) > 0 {
 		items = append(items, &navigationItem{label: "Languages", children: languages})

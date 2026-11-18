@@ -191,7 +191,11 @@ func Page(content string, opts Options) (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	b.WriteString("<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>")
+	pageLang := siteInfoString(opts.SiteInfo, "query", "general", "lang")
+	if pageLang == "" {
+		pageLang = resourceLang
+	}
+	b.WriteString(`<!DOCTYPE html><html lang="` + escaped(pageLang) + `"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>`)
 	b.WriteString(escaped(opts.Title + " | " + site + "+" + app))
 	b.WriteString("</title>")
 	for _, style := range styles {
@@ -239,7 +243,7 @@ func Page(content string, opts Options) (string, error) {
 	b.WriteString(escaped(bodyClass))
 	b.WriteString(` bw-tabs-nojs">`)
 	writeHeader(&b, opts, theme)
-	b.WriteString(`<div class="main-container"><div class="fandom-community-header__background tileHorizontally header"></div><div class="page"><main class="page__main">`)
+	b.WriteString(`<div class="main-container"><div class="fandom-community-header__background tileHorizontally header"></div><div class="page"><main class="page__main" id="bw-main" tabindex="-1">`)
 	if notice := externalWikiNotice(opts); notice != "" {
 		b.WriteString(notice)
 	} else {
@@ -274,13 +278,13 @@ func titleBreadcrumbs(b *strings.Builder, title string) {
 }
 
 func footer(b *strings.Builder, source, app, license, licenseURL, logoURL string) {
-	b.WriteString(`<footer class="custom-footer"><div class="`)
+	b.WriteString(`<footer class="custom-footer" lang="en"><div class="`)
 	if source != "" {
 		b.WriteString("custom-footer__cols")
 	} else {
 		b.WriteString("internal-footer")
 	}
-	b.WriteString(`"><div><p><img class="my-logo" src="`)
+	b.WriteString(`"><div><p><img class="my-logo" alt="" src="`)
 	b.WriteString(escaped(logoURL))
 	b.WriteString(`"></p><p><a href="https://github.com/perennialtech/breezewiki-go">`)
 	b.WriteString(escaped(app))

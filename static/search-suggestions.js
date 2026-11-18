@@ -10,6 +10,7 @@ const hitsPromise = new Map()
 
 const query = signal("")
 const focus = signal(false)
+const dismissed = signal(false)
 const st = signal("ready")
 const suggestions = signal([])
 let pendingEnter = false
@@ -70,8 +71,12 @@ function DefaultSearch({q}) {
 }
 
 function SuggestionList() {
+	const show = focus.value && !dismissed.value
+	const status = show && query.value && st.value === "ready"
+		? `${suggestions.value.length} suggested ${suggestions.value.length === 1 ? "page" : "pages"}` : ""
 	return html`
-<ul class=${classNames(["bw-ss__list", focus.value && "bw-ss__list--focus", `bw-ss__list--${st.value}`])}>
+<span class="bw-visually-hidden" role="status">${status}</span>
+<ul aria-label="Search suggestions" class=${classNames(["bw-ss__list", show && "bw-ss__list--focus", `bw-ss__list--${st.value}`])}>
 	${suggestions.value.map((hit, index) => html`<${Suggestion} key=${hit.url || hit.title} ...${hit} index=${index} />`)}
 	<${DefaultSearch} key="default-search" q=${query.value} />
 </ul>`
@@ -117,23 +122,33 @@ window.addEventListener("pageshow", event => {
 })
 
 function onSearchKeyDown(event) {
+    if (event.key === "Escape" && query.value && !dismissed.value) {
+        pendingEnter = false
+        selectedIndex.value = -1
+        dismissed.value = true
+        eInput.querySelector("input")?.focus()
+        event.preventDefault()
+        return
+    }
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         pendingEnter = false
         if (st.value !== "ready" || !query.value) return
         event.preventDefault()
+        if (dismissed.value) {
+            dismissed.value = false
+            return
+        }
         const options = suggestions.value.length + 1
         selectedIndex.value = event.key === "ArrowDown"
             ? (selectedIndex.value + 1) % (options + 1)
             : (selectedIndex.value === -1 ? options - 1 : selectedIndex.value - 1)
         if (selectedIndex.value === options) selectedIndex.value = -1
-        if (event.target !== eInput.querySelector("input")) {
-            const entries = eSuggestions.querySelectorAll(".bw-ss__button")
-            const next = selectedIndex.value === -1 ? eInput.querySelector("input") : entries[selectedIndex.value]
-            next?.focus()
-        }
+        const entries = eSuggestions.querySelectorAll(".bw-ss__button")
+        const next = selectedIndex.value === -1 ? eInput.querySelector("input") : entries[selectedIndex.value]
+        next?.focus()
         return
     }
-    if (event.key !== "Enter" || event.target.closest("a, button[type=submit]")) return
+    if (event.key !== "Enter" || dismissed.value || event.target.closest("a, button[type=submit]")) return
     if (st.value === "accepted") {
         event.preventDefault()
     } else if (st.value === "loading") {
@@ -152,7 +167,7 @@ function onSearchKeyDown(event) {
 
 function SuggestionInput() {
 	return html`
-<input type="text" name="q" id="bw-search-input" placeholder="Search" autocomplete="off" onInput=${e => { pendingEnter = false; selectedIndex.value = -1; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
+<input type="text" name="q" id="bw-search-input" placeholder="Search" autocomplete="off" aria-controls="bw-pr-search-suggestions" onInput=${e => { pendingEnter = false; selectedIndex.value = -1; dismissed.value = false; query.value = e.target.value }} onKeyDown=${onSearchKeyDown} value=${query.value} class=${classNames(["bw-ss__input", `bw-ss__input--${st.value}`])} />`
 }
 
 render(html`<${SuggestionInput} />`, eInput)
@@ -160,7 +175,10 @@ eSuggestions.addEventListener("keydown", onSearchKeyDown)
 
 // form focus
 
-eForm.addEventListener("focusin", () => focus.value = true)
+eForm.addEventListener("focusin", event => {
+    if (!eForm.contains(event.relatedTarget)) dismissed.value = false
+    focus.value = true
+})
 eForm.addEventListener("focusout", event => {
 	if (eForm.contains(event.relatedTarget)) {
 		// event fired when changing from one form element to the other

@@ -67,6 +67,10 @@ func TestGenshinNavigationAndLanguages(t *testing.T) {
 				doc.Find("#content .bw-wiki-navigation, header.bw-header h1").Length() != 0 {
 				t.Fatal("the wiki navigation should be inside the toolbar and the article title should be outside it")
 			}
+			if doc.Find("html[lang=en] header > a[href='#bw-main']").Length() != 1 ||
+				doc.Find("main#bw-main[tabindex='-1']").Length() != 1 {
+				t.Fatal("the wiki page should declare a language and provide a focusable skip target")
+			}
 		})
 	}
 }

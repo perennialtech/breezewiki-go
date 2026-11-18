@@ -72,23 +72,74 @@ function initCollapsibles(root) {
     }
 }
 
+const activeTooltips = new Set()
+
+document.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || event.defaultPrevented || !activeTooltips.size) return
+    for (const dismiss of activeTooltips) dismiss()
+    event.preventDefault()
+})
+
 function initTooltips(root) {
-    for (const box of root.querySelectorAll(".custom-tt-wrapper")) {
+    for (const [index, box] of [...root.querySelectorAll(".custom-tt-wrapper")].entries()) {
         const control = box.querySelector(":scope > .mw-collapsible-toggle")
         const body = box.querySelector(":scope > .mw-collapsible-content")
         if (!control || !body) continue
         box.classList.add("bw-tooltip")
         body.style.removeProperty("display")
+        if (!body.id) body.id = `bw-tooltip-${index}`
+        control.setAttribute("aria-controls", body.id)
+        if (control.textContent.trim() === "ⓘ") control.setAttribute("aria-label", "More information")
+
         let pinned = false
+        let hovered = false
+        let focused = false
+        let dismissed = false
+        function update() {
+            const open = !dismissed && (pinned || hovered || focused)
+            control.setAttribute("aria-expanded", open)
+            box.classList.toggle("bw-tooltip-visible", open)
+            if (!open) {
+                activeTooltips.delete(dismiss)
+                return
+            }
+            activeTooltips.add(dismiss)
+            body.style.removeProperty("--bw-tooltip-shift")
+            const {left, right} = body.getBoundingClientRect()
+            const edge = document.documentElement.clientWidth - 8
+            const shift = left < 8 ? 8 - left : Math.min(0, edge - right)
+            body.style.setProperty("--bw-tooltip-shift", `${shift}px`)
+        }
+        function dismiss() {
+            if (pinned) control.click()
+            if (body.contains(document.activeElement)) control.focus({preventScroll: true})
+            dismissed = true
+            update()
+        }
         toggleControl(control, false, expanded => {
             pinned = expanded
-            box.classList.toggle("bw-tooltip-open", expanded)
+            dismissed = !expanded && (hovered || focused)
+            update()
         })
-        box.addEventListener("keydown", event => {
-            if (event.key === "Escape" && pinned) {
-                control.click()
-                control.focus()
-            }
+        box.addEventListener("pointerenter", event => {
+            if (event.pointerType !== "mouse") return
+            hovered = true
+            dismissed = false
+            update()
+        })
+        box.addEventListener("pointerleave", () => {
+            hovered = false
+            update()
+        })
+        box.addEventListener("focusin", event => {
+            focused = true
+            if (!box.contains(event.relatedTarget)) dismissed = false
+            update()
+        })
+        box.addEventListener("focusout", event => {
+            if (box.contains(event.relatedTarget)) return
+            focused = false
+            update()
         })
     }
 }
@@ -234,6 +285,9 @@ function initImageViewer(root) {
         const figure = document.createElement("figure")
         const image = document.createElement("img")
         const caption = document.createElement("figcaption")
+        const status = document.createElement("div")
+        status.className = "bw-visually-hidden"
+        status.setAttribute("role", "status")
         const controls = document.createElement("div")
         const original = document.createElement("a")
         original.textContent = "Open original"
@@ -254,6 +308,7 @@ function initImageViewer(root) {
             caption.textContent = item.closest(".wikia-gallery-item, .gallerybox, figure")?.querySelector(
                 ".lightbox-caption, .gallerytext, figcaption")?.textContent.trim() || preview.alt
             original.href = item.href
+            if (change) status.textContent = `Image ${index + 1} of ${images.length}. ${caption.textContent}`
         }
         if (images.length > 1) {
             previous.addEventListener("click", () => show(-1))
@@ -266,8 +321,11 @@ function initImageViewer(root) {
         }
         controls.append(original, close)
         figure.append(image, caption)
-        dialog.append(controls, figure)
-        dialog.addEventListener("close", () => dialog.remove(), {once:true})
+        dialog.append(controls, figure, status)
+        dialog.addEventListener("close", () => {
+            dialog.remove()
+            link.focus({preventScroll: true})
+        }, {once: true})
         root.append(dialog)
         show()
         dialog.showModal()

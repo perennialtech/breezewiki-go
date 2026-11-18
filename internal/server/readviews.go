@@ -158,8 +158,8 @@ func (s *Server) revisionDiff(w http.ResponseWriter, r *http.Request, wiki, lang
 	fromLink := linkTo(wiki, lang, fandom.String(comparison, "fromtitle")) + "?oldid=" + revisionID(comparison, "fromrevid")
 	toLink := linkTo(wiki, lang, fandom.String(comparison, "totitle")) + "?oldid=" + revisionID(comparison, "torevid")
 	// The MediaWiki API returns table rows. A table wrapper preserves their structure.
-	content := `<div class="table-scroller" tabindex="0"><table class="diff wikitable"><thead><tr><th colspan="2"><a href="` +
-		quote(fromLink) + `">Earlier revision</a></th><th colspan="2"><a href="` + quote(toLink) +
+	content := `<div class="table-scroller" role="region" aria-label="Scrollable revision comparison" tabindex="0"><table class="diff wikitable"><thead><tr><th scope="colgroup" colspan="2"><a href="` +
+		quote(fromLink) + `">Earlier revision</a></th><th scope="colgroup" colspan="2"><a href="` + quote(toLink) +
 		`">Later revision</a></th></tr></thead><tbody>` + diff + `</tbody></table></div>`
 	if diff == "" {
 		content += "<p>No changes between these revisions.</p>"
@@ -254,6 +254,8 @@ func (s *Server) specialContent(w http.ResponseWriter, r *http.Request, wiki, la
 	}
 	body := doc.Find("#mw-content-text")
 	cleanReadView(body, wikiPrefix(wiki, lang))
+	body.Find(`.mw-widget-sizeFilterWidget input[name="size"]:not([aria-label], [aria-labelledby])`).
+		SetAttr("aria-label", "Page size in bytes")
 	content, err := body.Html()
 	if err != nil {
 		s.readUnavailable(w, r, wiki, lang, page, source)

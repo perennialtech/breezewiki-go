@@ -1,3 +1,10 @@
+const header = document.querySelector(".bw-header")
+if (header && typeof ResizeObserver === "function") {
+    new ResizeObserver(() => {
+        document.documentElement.style.setProperty("--bw-header-height", `${header.offsetHeight}px`)
+    }).observe(header)
+}
+
 const menus = [...document.querySelectorAll(".bw-header__menu")]
 
 document.addEventListener("click", event => {

@@ -221,9 +221,13 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 		if s.Config.True("strict_proxy") && fandom.AllowedProxyURL(imageURL) {
 			display = "/proxy?dest=" + url.QueryEscape(imageURL)
 		}
+		mediaName := title
+		if _, name, ok := strings.Cut(title, ":"); ok {
+			mediaName = strings.TrimSpace(name)
+		}
 		switch fandom.String(img, "mediatype") {
 		case "BITMAP", "DRAWING":
-			b.WriteString("<img src=\"" + quote(display) + "\"")
+			b.WriteString(`<img src="` + quote(display) + `" alt="` + quote(mediaName) + `"`)
 			for _, dim := range []string{"width", "height"} {
 				if n, ok := img[dim].(float64); ok {
 					b.WriteString(" " + dim + "=\"" + fmt.Sprintf("%.0f", n) + "\"")
@@ -231,7 +235,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 			}
 			b.WriteString(">")
 		case "AUDIO":
-			b.WriteString("<audio src=\"" + quote(display) + "\" controls></audio>")
+			b.WriteString(`<audio src="` + quote(display) + `" aria-label="` + quote(mediaName) + `" controls></audio>`)
 		case "VIDEO":
 			if fandom.String(img, "mime") == "video/youtube" {
 				var videoID string
@@ -242,7 +246,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 					}
 				}
 				if videoID != "" {
-					filePlayer = `<iframe title="YouTube video" src="https://www.youtube-nocookie.com/embed/` +
+					filePlayer = `<iframe title="` + quote(mediaName) + ` (YouTube)" src="https://www.youtube-nocookie.com/embed/` +
 						quote(url.PathEscape(videoID)) +
 						`" width="560" height="315" style="max-width:100%" loading="lazy" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
 					b.WriteString(`<p><a href="https://www.youtube.com/watch?v=` + quote(url.QueryEscape(videoID)) + `">Watch on YouTube</a></p>`)
@@ -250,7 +254,7 @@ func (s *Server) renderArticle(w http.ResponseWriter, r *http.Request, wiki, lan
 					b.WriteString(`<p><a href="` + quote(source) + `">Watch on Fandom</a></p>`)
 				}
 			} else {
-				b.WriteString("<video src=\"" + quote(display) + "\" controls></video>")
+				b.WriteString(`<video src="` + quote(display) + `" aria-label="` + quote(mediaName) + `" controls></video>`)
 			}
 		}
 		if fandom.String(img, "mime") != "video/youtube" {
@@ -377,7 +381,7 @@ func (s *Server) randomPageJSONP(w http.ResponseWriter, r *http.Request, wiki, l
 	}
 	q.Set("callback", "showRandomPage")
 	var b strings.Builder
-	b.WriteString(`<p id="random-status">Finding a random page…</p><script>function showRandomPage(data) {`)
+	b.WriteString(`<p id="random-status" role="status">Finding a random page…</p><script>function showRandomPage(data) {`)
 	b.WriteString(`const title = data.query?.random?.[0]?.title; if (!title) { document.getElementById("random-status").textContent = "No random page was found."; return; } `)
 	b.WriteString(`location.replace(` + jsonString("/"+wiki+func() string {
 		if lang != "" {
@@ -415,7 +419,7 @@ func (s *Server) jsonp(w http.ResponseWriter, r *http.Request, wiki, lang, page,
 	// A JSONP page is a real HTML page, not JSON. The browser fetches each
 	// endpoint with a callback, then POSTs the results back to this URL.
 	var b strings.Builder
-	b.WriteString("<noscript>You have to enable JavaScript to load wiki pages. Sorry!</noscript><div id=\"loading\"></div><div id=\"progress-bar\" style=\"margin-bottom: 50vh\"><progress></progress></div>")
+	b.WriteString(`<noscript>You have to enable JavaScript to load wiki pages. Sorry!</noscript><div id="loading" role="status"></div><div id="progress-bar" style="margin-bottom: 50vh"><progress aria-label="Loading wiki page"></progress></div>`)
 	b.WriteString("<script>var jsonpData = {}; var proxy = new Proxy(jsonpData, {get(obj, prop) { return value => obj[prop] = value }});</script>")
 	for _, e := range ep {
 		q := url.Values{}

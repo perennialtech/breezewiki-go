@@ -1,7 +1,13 @@
-function setUpTabber(tabber) {
+function setUpTabber(tabber, index) {
     const tabs = [...tabber.querySelectorAll(":scope > .wds-tabs__wrapper .wds-tabs__tab")]
     const panels = [...tabber.querySelectorAll(":scope > .wds-tab__content")]
     if (!tabs.length || tabs.length !== panels.length) return
+
+    const list = tabs[0].parentElement
+    list.setAttribute("role", "tablist")
+    if (!list.hasAttribute("aria-label") && !list.hasAttribute("aria-labelledby")) {
+        list.setAttribute("aria-label", tabs.slice(0, 3).map(tab => tab.textContent.trim().replace(/\s+/g, " ")).join(", "))
+    }
 
     const active = tabs.findIndex(tab => tab.classList.contains("wds-is-current"))
     function select(index, updateHash = false) {
@@ -21,7 +27,15 @@ function setUpTabber(tabber) {
     }
 
     tabs.forEach((tab, i) => {
+        const panel = panels[i]
+        if (!tab.id || document.getElementById(tab.id) !== tab) tab.id = `bw-tab-${index}-${i}`
+        if (!panel.id || document.getElementById(panel.id) !== panel) panel.id = `bw-panel-${index}-${i}`
         tab.setAttribute("role", "tab")
+        tab.setAttribute("aria-controls", panel.id)
+        panel.setAttribute("role", "tabpanel")
+        panel.setAttribute("aria-labelledby", tab.id)
+        panel.tabIndex = 0
+        for (const child of tab.querySelectorAll("a[href], button, [tabindex]")) child.tabIndex = -1
         tab.addEventListener("click", event => {
             event.preventDefault()
             select(i, true)

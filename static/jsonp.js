@@ -13,7 +13,7 @@ const progress = signal(null)
 const progressBar = document.getElementById("progress-bar")
 while (progressBar.childNodes[0] !== undefined) progressBar.childNodes[0].remove() // clear out loading indicators
 
-render(html`<progress value="${progress}" max="1"></progress>`, progressBar)
+render(html`<progress aria-label="Loading wiki page" value="${progress}" max="1"></progress>`, progressBar)
 
 // *** Incoming data processing
 
@@ -165,6 +165,7 @@ async function cont() {
 		const title = xhr.responseXML.querySelector(".page-title")
 		if (title) document.querySelector(".page-title")?.replaceWith(document.importNode(title, true))
 		document.body.className = xhr.responseXML.body.className
+		document.documentElement.lang = xhr.responseXML.documentElement.lang
 		for (const e of xhr.responseXML.head.children) {
 			const alreadyImported = [...document.querySelectorAll("link[href]")].map(e => e.href)
 			if (e.tagName === "LINK" && !alreadyImported.includes(e.href)) {

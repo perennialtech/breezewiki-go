@@ -35,6 +35,15 @@ function initCountdowns() {
     }
     if (!timers.length) return
 
+    const toggle = document.createElement("button")
+    toggle.type = "button"
+    toggle.className = "bw-countdown-toggle"
+    toggle.textContent = "Pause countdowns"
+    toggle.setAttribute("aria-pressed", "false")
+    const first = timers[0].element
+    const anchor = first.closest('[class^="gi-countdown-"], [class*=" gi-countdown-"]') ?? first
+    anchor.before(toggle)
+
     function update() {
         const now = Date.now()
         let active = false
@@ -58,6 +67,17 @@ function initCountdowns() {
         }
         if (!active) clearInterval(interval)
     }
+
+    toggle.addEventListener("click", () => {
+        const paused = toggle.getAttribute("aria-pressed") === "true"
+        toggle.setAttribute("aria-pressed", !paused)
+        if (paused) {
+            interval = setInterval(update, 1000)
+            update()
+        } else {
+            clearInterval(interval)
+        }
+    })
 
     interval = setInterval(update, 1000)
     update()

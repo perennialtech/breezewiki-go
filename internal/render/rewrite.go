@@ -300,6 +300,9 @@ func noscriptImage(n *html.Node) bool {
 }
 
 func rewriteAttributes(n *html.Node, wiki, lang string, strict bool) {
+	if hasClass(n, "toctogglecheckbox") {
+		setAttr(n, "aria-label", "Toggle table of contents")
+	}
 	if class, ok := getAttr(n, "class"); ok {
 		class = strings.ReplaceAll(class, "pi-collapse-closed", "")
 		class = strings.ReplaceAll(class, "pi-collapse", "")

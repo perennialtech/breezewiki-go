@@ -30,7 +30,7 @@ func (s *Server) discussion(w http.ResponseWriter, r *http.Request, wiki, route 
 	title := "Discussions"
 	if body.Length() > 0 {
 		body.Find(".desktop-reply-create,.post-footer,button,input,textarea").Remove()
-		cleanReadView(body, "/"+wiki)
+		cleanDiscussion(body, "/"+wiki)
 		content, err = body.Html()
 	} else {
 		posts := doc.Find("article.standard-post")
@@ -45,7 +45,7 @@ func (s *Server) discussion(w http.ResponseWriter, r *http.Request, wiki, route 
 		posts.Each(func(_ int, post *goquery.Selection) {
 			post.ChildrenFiltered("footer").Remove()
 			post.Find("button,input,textarea").Remove()
-			cleanReadView(post, "/"+wiki)
+			cleanDiscussion(post, "/"+wiki)
 			if text, err := post.Html(); err == nil {
 				b.WriteString("<article>" + text + "</article>")
 			}
@@ -64,4 +64,11 @@ func (s *Server) discussion(w http.ResponseWriter, r *http.Request, wiki, route 
 	header := `<p><a href="/` + quote(wiki) + `/f">Discussion home</a> · <a href="` + quote(source) + `">Open on Fandom</a></p>`
 	s.page(w, r, wiki, "", title, source, header+`<div class="bw-discussion">`+content+`</div>`, "",
 		s.Fandom.SiteInfo(r.Context(), wiki, ""))
+}
+
+// Empty avatar links can remain after the platform icons are removed. The
+// adjacent author name already provides a link to the profile.
+func cleanDiscussion(body *goquery.Selection, prefix string) {
+	cleanReadView(body, prefix)
+	body.Find(".post-attribution__avatar a:empty").Remove()
 }
